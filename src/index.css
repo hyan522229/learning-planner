@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
+  --color-success-50: #f0fdf4;
+  --color-success-500: #22c55e;
+  --color-success-600: #16a34a;
+  --color-warning-50: #fffbeb;
+  --color-warning-500: #f59e0b;
+  --color-danger-50: #fef2f2;
+  --color-danger-500: #ef4444;
+}
+
+:root {
+  --background: 220 20% 97%;
+  --foreground: 224 60% 6%;
+  --card: 0 0% 100%;
+  --card-foreground: 224 60% 6%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 224 60% 6%;
+  --primary: 221 83% 53%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 220 15% 94%;
+  --secondary-foreground: 224 50% 15%;
+  --muted: 220 15% 93%;
+  --muted-foreground: 220 10% 45%;
+  --accent: 220 15% 93%;
+  --accent-foreground: 224 50% 15%;
+  --destructive: 0 75% 52%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 220 15% 88%;
+  --input: 220 15% 88%;
+  --ring: 221 83% 53%;
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 228 30% 4%;
+  --foreground: 210 25% 94%;
+  --card: 228 20% 9%;
+  --card-foreground: 210 25% 94%;
+  --popover: 228 20% 12%;
+  --popover-foreground: 210 25% 94%;
+  --primary: 217 91% 64%;
+  --primary-foreground: 225 30% 8%;
+  --secondary: 228 15% 15%;
+  --secondary-foreground: 210 25% 94%;
+  --muted: 228 15% 16%;
+  --muted-foreground: 215 12% 58%;
+  --accent: 228 15% 18%;
+  --accent-foreground: 210 25% 94%;
+  --destructive: 0 63% 42%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 228 15% 22%;
+  --input: 228 15% 22%;
+  --ring: 217 91% 64%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  margin: 0;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+@keyframes progress-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes progress-charge {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 10mm 10mm 10mm;
+  }
+
+  html, body {
+    font-size: 10px !important;
+    color: #1a1a1a !important;
+    background: white !important;
+  }
+
+  /* Hide all chrome */
+  aside, header, nav, .no-print,
+  [class*="sidebar"], [class*="Sidebar"],
+  [class*="topbar"], [class*="TopBar"] {
+    display: none !important;
+  }
+
+  /* Full-width main content */
+  .flex.h-screen > .flex-1 {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Remove animations and shadows */
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+}

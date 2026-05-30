@@ -1,0 +1,128 @@
+import type { KnowledgePoint } from '@/types';
+import { REVIEW_INTERVALS } from './constants';
+
+const DAY_MS = 86400000;
+
+/** Build cumulative review dates from a start date. Used only for initial creation. */
+export function calculateReviewDates(fromDate: number): number[] {
+  const dates: number[] = [];
+  let cursor = fromDate;
+  for (const days of REVIEW_INTERVALS) {
+    cursor = cursor + days * DAY_MS;
+    dates.push(cursor);
+  }
+  return dates;
+}
+
+export interface StageResult {
+  currentStage: number;
+  nextReviewDate: number;
+  reviewDates: number[];
+  consecutiveCorrect: number;
+  errorCount: number;
+  errorAtStage: number;
+  status: 'active' | 'completed';
+  action: 'advanced' | 'completed' | 'makeup' | 'downgraded' | 'reset';
+  message: string;
+}
+
+/**
+ * Correct review → advance to next stage.
+ * Computes nextReviewDate dynamically: now + interval[nextStage].
+ * This keeps intervals correct regardless of whether the point was
+ * created before or after the cumulative-interval fix.
+ */
+export function advanceStage(point: KnowledgePoint, allowSkip: boolean = false): StageResult {
+  const newConsecutive = point.consecutiveCorrect + 1;
+  let nextStage = point.currentStage + 1;
+
+  if (allowSkip && newConsecutive >= 3 && nextStage < REVIEW_INTERVALS.length) {
+    nextStage = Math.min(nextStage + 1, REVIEW_INTERVALS.length);
+  }
+
+  if (nextStage >= REVIEW_INTERVALS.length) {
+    const newDates = calculateReviewDates(Date.now());
+    return {
+      currentStage: REVIEW_INTERVALS.length,
+      nextReviewDate: newDates[REVIEW_INTERVALS.length - 1],
+      reviewDates: newDates,
+      consecutiveCorrect: newConsecutive,
+      errorCount: 0,
+      errorAtStage: 0,
+      status: 'completed',
+      action: 'completed',
+      message: '全部复习完成！',
+    };
+  }
+
+  const newDates = calculateReviewDates(Date.now());
+  return {
+    currentStage: nextStage,
+    nextReviewDate: Date.now() + REVIEW_INTERVALS[nextStage] * DAY_MS,
+    reviewDates: newDates,
+    consecutiveCorrect: newConsecutive,
+    errorCount: 0,
+    errorAtStage: 0,
+    status: 'active',
+    action: 'advanced',
+    message: allowSkip && newConsecutive >= 3
+      ? `连续 ${newConsecutive} 次正确，已跳过一级`
+      : `推进到 R${nextStage + 1}`,
+  };
+}
+
+/**
+ * Error review → insert makeup at current stage.
+ * Degrade or reset only on repeated errors.
+ */
+export function handleError(point: KnowledgePoint): StageResult {
+  const stage = point.currentStage;
+  const newErrorCount = (point.errorAtStage === stage ? point.errorCount : 0) + 1;
+
+  // Same stage error 3+ times → reset to R1
+  if (newErrorCount >= 3) {
+    const newDates = calculateReviewDates(Date.now());
+    return {
+      currentStage: 0,
+      nextReviewDate: newDates[0],
+      reviewDates: newDates,
+      consecutiveCorrect: 0,
+      errorCount: 0,
+      errorAtStage: 0,
+      status: 'active',
+      action: 'reset',
+      message: '同一节点连续 3 次出错，已重置回 R1',
+    };
+  }
+
+  // Same stage error 2 times → downgrade one stage
+  if (newErrorCount >= 2) {
+    const downgradedStage = Math.max(0, stage - 1);
+    const newDates = calculateReviewDates(Date.now());
+    return {
+      currentStage: downgradedStage,
+      nextReviewDate: newDates[0],
+      reviewDates: newDates,
+      consecutiveCorrect: 0,
+      errorCount: 0,
+      errorAtStage: 0,
+      status: 'active',
+      action: 'downgraded',
+      message: `同一节点连续 2 次出错，已降级到 R${downgradedStage + 1}`,
+    };
+  }
+
+  // First error at this stage → insert makeup review tomorrow
+  const newDates = calculateReviewDates(Date.now());
+  return {
+    currentStage: stage,
+    nextReviewDate: newDates[0],
+    reviewDates: newDates,
+    consecutiveCorrect: 0,
+    errorCount: newErrorCount,
+    errorAtStage: stage,
+    status: 'active',
+    action: 'makeup',
+    message: `在 R${stage + 1} 插入补练复习，明天再巩固一次`,
+  };
+}
