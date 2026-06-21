@@ -11,6 +11,7 @@ import ErrorProblemsPage from '@/pages/ErrorProblemsPage';
 import EnvironmentsPage from '@/pages/EnvironmentsPage';
 import ReportsPage from '@/pages/ReportsPage';
 import CalendarPage from '@/pages/CalendarPage';
+import AnalyticsPage from '@/pages/AnalyticsPage';
 import SettingsPage from '@/pages/SettingsPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
       { path: 'environments', element: <EnvironmentsPage /> },
       { path: 'reports', element: <ReportsPage /> },
       { path: 'calendar', element: <CalendarPage /> },
+      { path: 'analytics', element: <AnalyticsPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],

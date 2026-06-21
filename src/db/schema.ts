@@ -1,7 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 import type {
   Persona, Subject, KnowledgePoint, Project, Block,
-  ErrorProblem, Environment, DailyPlan, DailyStatus, AppSettings, ProgressLog
+  ErrorProblem, Environment, DailyPlan, DailyStatus, AppSettings, ProgressLog, AudioFile, ProjectCollection
 } from '@/types';
 import { generateId } from '@/utils/id';
 
@@ -17,6 +17,8 @@ export class LearningPlannerDB extends Dexie {
   dailyStatuses!: Table<DailyStatus, string>;
   settings!: Table<AppSettings, string>;
   progressLogs!: Table<ProgressLog, string>;
+  audioFiles!: Table<AudioFile, string>;
+  projectCollections!: Table<ProjectCollection, string>;
 
   constructor() {
     super('learning-planner');
@@ -46,6 +48,52 @@ export class LearningPlannerDB extends Dexie {
       dailyStatuses: 'id, personaId, date',
       settings: 'id',
       progressLogs: 'id, projectId, personaId, date, [projectId+date]',
+    });
+
+    this.version(3).stores({
+      personas: 'id',
+      subjects: 'id, personaId, priority',
+      knowledgePoints: 'id, personaId, subjectId, nextReviewDate, status, [personaId+nextReviewDate], [personaId+status]',
+      projects: 'id, personaId, subjectId, status, [personaId+status]',
+      blocks: 'id, personaId, date, status, [personaId+date], [personaId+date+status]',
+      errorProblems: 'id, personaId, subjectId, nextReviewDate, status, [personaId+nextReviewDate], [personaId+status]',
+      environments: 'id, personaId',
+      dailyPlans: 'id, personaId, date',
+      dailyStatuses: 'id, personaId, date',
+      settings: 'id',
+      progressLogs: 'id, projectId, personaId, date, [projectId+date]',
+      audioFiles: 'id, personaId, category, [personaId+category]',
+    });
+
+    this.version(4).stores({
+      personas: 'id',
+      subjects: 'id, personaId, priority',
+      knowledgePoints: 'id, personaId, subjectId, nextReviewDate, status, [personaId+nextReviewDate], [personaId+status]',
+      projects: 'id, personaId, subjectId, status, [personaId+status]',
+      blocks: 'id, personaId, date, status, [personaId+date], [personaId+date+status], [personaId+status]',
+      errorProblems: 'id, personaId, subjectId, nextReviewDate, status, [personaId+nextReviewDate], [personaId+status]',
+      environments: 'id, personaId',
+      dailyPlans: 'id, personaId, date',
+      dailyStatuses: 'id, personaId, date',
+      settings: 'id',
+      progressLogs: 'id, projectId, personaId, date, [projectId+date]',
+      audioFiles: 'id, personaId, category, [personaId+category]',
+    });
+
+    this.version(5).stores({
+      personas: 'id',
+      subjects: 'id, personaId, priority',
+      knowledgePoints: 'id, personaId, subjectId, nextReviewDate, status, [personaId+nextReviewDate], [personaId+status]',
+      projects: 'id, personaId, subjectId, status, [personaId+status]',
+      blocks: 'id, personaId, date, status, [personaId+date], [personaId+date+status], [personaId+status]',
+      errorProblems: 'id, personaId, subjectId, nextReviewDate, status, [personaId+nextReviewDate], [personaId+status]',
+      environments: 'id, personaId',
+      dailyPlans: 'id, personaId, date',
+      dailyStatuses: 'id, personaId, date',
+      settings: 'id',
+      progressLogs: 'id, projectId, personaId, date, [projectId+date]',
+      audioFiles: 'id, personaId, category, [personaId+category]',
+      projectCollections: 'id, personaId',
     });
   }
 }

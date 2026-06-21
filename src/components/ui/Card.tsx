@@ -10,7 +10,7 @@ const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
       onMouseEnter?.(e);
       gsap.to(localRef.current, {
         y: -2,
-        boxShadow: '0 8px 25px rgba(0,0,0,0.08)',
+        boxShadow: '0 8px 30px rgba(0,0,0,0.06)',
         duration: 0.3,
         ease: 'power2.out',
         force3D: false,
@@ -21,7 +21,7 @@ const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
       onMouseLeave?.(e);
       gsap.to(localRef.current, {
         y: 0,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+        boxShadow: '0 0 0 rgba(0,0,0,0)',
         duration: 0.35,
         ease: 'power2.out',
         force3D: false,
@@ -38,7 +38,7 @@ const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={cn(
-          'rounded-xl border bg-card text-card-foreground shadow-sm',
+          'rounded-lg border border-border/60 bg-card text-card-foreground',
           'transition-colors duration-200',
           className
         )}
@@ -58,7 +58,7 @@ CardHeader.displayName = 'CardHeader';
 
 const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn('font-semibold leading-none tracking-tight', className)} {...props} />
+    <h3 ref={ref} className={cn('font-semibold leading-tight tracking-tight', className)} {...props} />
   )
 );
 CardTitle.displayName = 'CardTitle';

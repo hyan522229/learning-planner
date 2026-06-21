@@ -13,6 +13,7 @@ interface DailyPlanState {
   generateTodayPlan: (personaId: string, environment: Environment, settings: AppSettings) => Promise<FullPlanOutput>;
   loadTodayPlan: (personaId: string) => Promise<void>;
   loadWeekPlans: (personaId: string, weekStart: number) => Promise<Map<number, { plan: DailyPlan; blocks: Block[] }>>;
+  loadRangePlans: (personaId: string, rangeStart: number, rangeEnd: number) => Promise<Map<number, { plan: DailyPlan; blocks: Block[] }>>;
   loadMonthPlans: (personaId: string, monthStart: number, monthEnd: number) => Promise<Map<number, DailyPlan>>;
 }
 
@@ -74,6 +75,21 @@ export const useDailyPlanStore = create<DailyPlanState>((set) => ({
     const plans = await db.dailyPlans
       .where({ personaId })
       .filter(p => p.date >= weekStart && p.date < weekEnd)
+      .toArray();
+
+    const result = new Map<number, { plan: DailyPlan; blocks: Block[] }>();
+    for (const plan of plans) {
+      const blocks = await db.blocks.bulkGet(plan.blockIds);
+      const validBlocks = (blocks.filter(Boolean) as Block[]).sort((a, b) => a.sortOrder - b.sortOrder);
+      result.set(plan.date, { plan, blocks: validBlocks });
+    }
+    return result;
+  },
+
+  loadRangePlans: async (personaId, rangeStart, rangeEnd) => {
+    const plans = await db.dailyPlans
+      .where({ personaId })
+      .filter(p => p.date >= rangeStart && p.date < rangeEnd)
       .toArray();
 
     const result = new Map<number, { plan: DailyPlan; blocks: Block[] }>();

@@ -21,19 +21,13 @@ export default defineConfig({
         orientation: 'portrait-primary',
         start_url: '/',
         icons: [
-          { src: 'favicon.svg', sizes: '192x192', type: 'image/svg+xml' },
-          { src: 'favicon.svg', sizes: '512x512', type: 'image/svg+xml' },
+          { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https?:\/\/.*/i,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'external-cache', expiration: { maxEntries: 50, maxAgeSeconds: 86400 } },
-          },
-        ],
+        globPatterns: ['**/*.{js,css,html,svg,woff2}'],
       },
     }),
   ],

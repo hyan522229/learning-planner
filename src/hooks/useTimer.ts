@@ -1,21 +1,31 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTimerStore } from '@/stores/timerStore';
 
 export function useTimer() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wakeLockRef = useRef<any>(null);
   const { phase, remainingSeconds, totalSeconds, currentBlockId, start, pause, resume, tick, extend, shorten, complete, reset } = useTimerStore();
-  const remainingRef = useRef(remainingSeconds);
-  remainingRef.current = remainingSeconds;
 
   useEffect(() => {
     if (phase === 'running') {
       intervalRef.current = setInterval(() => {
         tick();
-      }, 1000);
+      }, 250);
+      // Prevent screen lock while timer is running
+      if ('wakeLock' in navigator) {
+        (navigator as any).wakeLock.request('screen').then((sentinel: any) => {
+          wakeLockRef.current = sentinel;
+          sentinel.addEventListener('release', () => { wakeLockRef.current = null; });
+        }).catch(() => {});
+      }
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
+      }
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(() => {});
+        wakeLockRef.current = null;
       }
     }
     return () => {

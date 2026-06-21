@@ -3,11 +3,9 @@ import { motion } from 'motion/react';
 import { cn } from '@/utils/cn';
 import { useUIStore } from '@/stores/uiStore';
 import { usePersonaStore } from '@/stores/personaStore';
-import { useRef, useCallback } from 'react';
-import gsap from 'gsap';
 import {
   LayoutDashboard, BookOpen, CalendarCheck, Timer, FolderKanban,
-  AlertTriangle, Globe, BarChart3, Settings, ChevronLeft, ChevronRight, CalendarDays
+  AlertTriangle, Globe, BarChart3, PieChart, Settings, ChevronLeft, ChevronRight, CalendarDays
 } from 'lucide-react';
 
 const navItems = [
@@ -20,73 +18,9 @@ const navItems = [
   { to: '/errors', icon: AlertTriangle, label: '错题' },
   { to: '/environments', icon: Globe, label: '环境' },
   { to: '/reports', icon: BarChart3, label: '报告' },
+  { to: '/analytics', icon: PieChart, label: '数据分析' },
   { to: '/settings', icon: Settings, label: '设置' },
 ];
-
-function NavItem({ item, collapsed }: { item: typeof navItems[number]; collapsed: boolean }) {
-  const linkRef = useRef<HTMLAnchorElement>(null);
-
-  const handleMouseEnter = useCallback(() => {
-    const el = linkRef.current;
-    if (!el) return;
-    gsap.to(el, {
-      x: 3,
-      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-      duration: 0.25,
-      ease: 'power2.out',
-      force3D: false,
-    });
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    const el = linkRef.current;
-    if (!el) return;
-    gsap.to(el, {
-      x: 0,
-      boxShadow: '0 0 0 rgba(0,0,0,0)',
-      duration: 0.3,
-      ease: 'power2.out',
-      force3D: false,
-    });
-  }, []);
-
-  const handleMouseDown = useCallback(() => {
-    const el = linkRef.current;
-    if (!el) return;
-    gsap.to(el, { x: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.04)', duration: 0.08, ease: 'power2.in', force3D: false });
-  }, []);
-
-  const handleMouseUp = useCallback(() => {
-    const el = linkRef.current;
-    if (!el) return;
-    gsap.to(el, { x: 3, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', duration: 0.2, ease: 'elastic.out(1, 0.4)', force3D: false });
-  }, []);
-
-  return (
-    <NavLink
-      ref={linkRef}
-      to={item.to}
-      end={item.to === '/'}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
-      className={({ isActive }) => cn(
-        'relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium',
-        'transition-colors duration-200',
-        collapsed && 'justify-center px-2',
-        isActive
-          ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
-          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-        isActive && !collapsed && 'border-l-[3px] border-l-blue-500 pl-[9px]',
-        isActive && collapsed && 'ring-2 ring-blue-500/50'
-      )}
-    >
-      <item.icon size={20} />
-      {!collapsed && <span>{item.label}</span>}
-    </NavLink>
-  );
-}
 
 export function Sidebar() {
   const collapsed = useUIStore(s => s.sidebarCollapsed);
@@ -94,80 +28,100 @@ export function Sidebar() {
   const personas = usePersonaStore(s => s.personas);
   const activeId = usePersonaStore(s => s.activePersonaId);
   const activePersona = personas.find(p => p.id === activeId);
-  const toggleRef = useRef<HTMLButtonElement>(null);
-
-  const handleToggleEnter = useCallback(() => {
-    gsap.to(toggleRef.current, { scale: 1.15, rotate: collapsed ? 8 : -8, duration: 0.3, ease: 'power2.out', force3D: false });
-  }, [collapsed]);
-
-  const handleToggleLeave = useCallback(() => {
-    gsap.to(toggleRef.current, { scale: 1, rotate: 0, duration: 0.3, ease: 'power2.out', force3D: false });
-  }, []);
-
-  const handleToggleDown = useCallback(() => {
-    gsap.to(toggleRef.current, { scale: 0.85, duration: 0.1, force3D: false });
-  }, []);
-
-  const handleToggleUp = useCallback(() => {
-    gsap.to(toggleRef.current, { scale: 1.15, duration: 0.2, ease: 'elastic.out(1, 0.4)', force3D: false });
-  }, []);
 
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 64 : 220 }}
+      animate={{ width: collapsed ? 64 : 240 }}
       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-      className="h-screen sticky top-0 flex flex-col border-r bg-card shrink-0 overflow-hidden"
+      className="h-screen sticky top-0 flex flex-col border-r bg-background shrink-0 overflow-hidden"
     >
-      <div className={cn("flex items-center h-14 px-3 border-b", collapsed ? "justify-center" : "justify-between")}>
+      {/* Header */}
+      <div className={cn(
+        "flex items-center h-14 px-3 border-b",
+        collapsed ? "justify-center" : "justify-between",
+      )}>
         {!collapsed && (
-          <motion.span
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="font-bold text-base text-blue-600"
-          >
-            学习规划器
-          </motion.span>
+          <span className="font-semibold text-sm tracking-tight">学习规划器</span>
         )}
         <button
-          ref={toggleRef}
           onClick={toggle}
-          onMouseEnter={handleToggleEnter}
-          onMouseLeave={handleToggleLeave}
-          onMouseDown={handleToggleDown}
-          onMouseUp={handleToggleUp}
-          className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+          className={cn(
+            "p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors",
+            collapsed && "hidden",
+          )}
+          aria-label="收起侧栏"
         >
-          {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          <ChevronLeft size={16} className="text-muted-foreground" />
         </button>
       </div>
 
-      <nav className="flex-1 py-2 px-2 space-y-1 overflow-y-auto">
-        {navItems.map((item, i) => (
-          <motion.div
+      {/* Navigation */}
+      <nav className="flex-1 px-2 py-2 overflow-y-auto space-y-0.5">
+        {navItems.map((item) => (
+          <NavLink
             key={item.to}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.04, type: 'spring', stiffness: 450, damping: 30 }}
+            to={item.to}
+            end={item.to === '/'}
+            className={({ isActive }) => cn(
+              'flex items-center rounded-md text-sm transition-colors group',
+              collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
+              isActive
+                ? 'bg-gray-100 dark:bg-gray-800 text-foreground font-medium'
+                : 'text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-foreground',
+            )}
+            title={collapsed ? item.label : undefined}
           >
-            <NavItem item={item} collapsed={collapsed} />
-          </motion.div>
+            <item.icon size={collapsed ? 20 : 18} className="shrink-0" />
+            {!collapsed && <span>{item.label}</span>}
+          </NavLink>
         ))}
       </nav>
 
-      {!collapsed && activePersona && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="border-t p-3">
-          <div className="flex items-center gap-2 text-sm">
-            <span>{activePersona.avatarEmoji}</span>
-            <span className="font-medium truncate">{activePersona.name}</span>
+      {/* Bottom */}
+      <div className="border-t">
+        {collapsed && (
+          <div className="p-2 flex justify-center">
+            <button
+              onClick={toggle}
+              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="展开侧栏"
+            >
+              <ChevronRight size={16} className="text-muted-foreground" />
+            </button>
           </div>
-        </motion.div>
-      )}
-      {collapsed && activePersona && (
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="border-t p-3 flex justify-center text-lg">
-          {activePersona.avatarEmoji}
-        </motion.div>
-      )}
+        )}
+        {activePersona && (
+          <div className={cn("p-3", collapsed && "flex justify-center")}>
+            {!collapsed ? (
+              <div className="flex items-center gap-2.5">
+                {activePersona.avatarImage ? (
+                  <img src={activePersona.avatarImage} className="w-7 h-7 rounded-full object-cover shrink-0" alt="" />
+                ) : (
+                  <span
+                    className="flex items-center justify-center w-7 h-7 rounded-full text-sm shrink-0"
+                    style={{ backgroundColor: activePersona.color || '#6366f1' }}
+                  >
+                    {activePersona.avatarEmoji}
+                  </span>
+                )}
+                <span className="text-sm font-medium truncate">{activePersona.name}</span>
+              </div>
+            ) : (
+              activePersona.avatarImage ? (
+                <img src={activePersona.avatarImage} className="w-7 h-7 rounded-full object-cover" alt="" />
+              ) : (
+                <span
+                  className="flex items-center justify-center w-7 h-7 rounded-full text-sm"
+                  style={{ backgroundColor: activePersona.color || '#6366f1' }}
+                >
+                  {activePersona.avatarEmoji}
+                </span>
+              )
+            )}
+          </div>
+        )}
+      </div>
     </motion.aside>
   );
 }

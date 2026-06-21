@@ -1,6 +1,6 @@
 import { useEnvironmentStore } from '@/stores/environmentStore';
-import { cn } from '@/utils/cn';
 import { Globe } from 'lucide-react';
+import { PillButton } from '@/components/ui/PillButton';
 
 interface Props {
   onSelect?: (envId: string) => void;
@@ -20,18 +20,13 @@ export function EnvironmentPicker({ onSelect }: Props) {
     <div className="flex items-center gap-1.5 bg-muted rounded-lg p-0.5">
       <Globe size={14} className="ml-2 text-muted-foreground" />
       {environments.map(env => (
-        <button
+        <PillButton
           key={env.id}
+          active={env.id === activeId}
           onClick={() => handleSelect(env.id)}
-          className={cn(
-            'px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
-            env.id === activeId
-              ? 'bg-background shadow-sm text-foreground'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
         >
           {env.name}
-        </button>
+        </PillButton>
       ))}
     </div>
   );

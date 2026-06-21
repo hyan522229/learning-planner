@@ -10,7 +10,7 @@ import { startOfDayEpoch } from '@/utils/date';
 import { formatDurationCompact } from '@/utils/time';
 import type { Project } from '@/types';
 
-const categoryIcons: Record<string, string> = { study: '📚', work: '💼', exercise: '🏃' };
+const categoryIcons: Record<string, string> = { study: '📘', work: '💻', exercise: '🏋️' };
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -160,7 +160,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-2">
                   {dueReviews.length > 0 && (
-                    <Link to="/knowledge" className="flex items-center justify-between p-3 rounded-lg bg-brand-50 dark:bg-brand-950 hover:shadow-sm transition-shadow">
+                    <Link to="/knowledge" className="flex items-center justify-between p-3 rounded-lg bg-brand-50 dark:bg-brand-950 hover:bg-muted/50 active:scale-[0.98] transition-all duration-150">
                       <div className="flex items-center gap-2">
                         <BookOpen size={16} className="text-brand-500" />
                         <span className="text-sm">待复习知识点</span>
@@ -169,7 +169,7 @@ export default function DashboardPage() {
                     </Link>
                   )}
                   {dueErrors.length > 0 && (
-                    <Link to="/errors" className="flex items-center justify-between p-3 rounded-lg bg-orange-50 dark:bg-orange-950 hover:shadow-sm transition-shadow">
+                    <Link to="/errors" className="flex items-center justify-between p-3 rounded-lg bg-orange-50 dark:bg-orange-950 hover:bg-muted/50 active:scale-[0.98] transition-all duration-150">
                       <div className="flex items-center gap-2">
                         <AlertTriangle size={16} className="text-orange-500" />
                         <span className="text-sm">待重做错题</span>
@@ -244,7 +244,7 @@ export default function DashboardPage() {
             <CardContent className="space-y-3">
               {activeProjects.length === 0 ? (
                 <div className="text-center py-4 text-muted-foreground">
-                  <div className="text-2xl mb-1">📂</div>
+                  <div className="text-2xl mb-1">📋</div>
                   <p className="text-xs">暂无项目</p>
                   <Link to="/projects" className="text-xs text-brand-500 hover:underline">去添加</Link>
                 </div>
@@ -255,7 +255,7 @@ export default function DashboardPage() {
                     <Link
                       key={project.id}
                       to="/projects"
-                      className="block p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                      className="block p-2 rounded-lg hover:bg-muted/50 active:scale-[0.98] transition-all duration-150"
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-medium flex items-center gap-1.5">

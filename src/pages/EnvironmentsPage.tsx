@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter, Button, Input, Label, Badge } from '@/components/ui';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
@@ -24,6 +24,7 @@ export default function EnvironmentsPage() {
   const addEnv = useEnvironmentStore(s => s.addEnvironment);
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const composingRef = useRef(false);
 
   useEffect(() => {
     if (activePersonaId) loadEnvs(activePersonaId);
@@ -170,8 +171,18 @@ export default function EnvironmentsPage() {
                 <div className="space-y-2">
                   <Label>环境名称</Label>
                   <Input
-                    value={editingEnv.name}
-                    onChange={e => updateEnv(editingEnv.id, { name: e.target.value })}
+                    key={editingEnv.id}
+                    defaultValue={editingEnv.name}
+                    onChange={e => {
+                      if (!composingRef.current) {
+                        updateEnv(editingEnv.id, { name: e.target.value });
+                      }
+                    }}
+                    onCompositionStart={() => { composingRef.current = true; }}
+                    onCompositionEnd={e => {
+                      composingRef.current = false;
+                      updateEnv(editingEnv.id, { name: (e.target as HTMLInputElement).value });
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -216,8 +227,18 @@ export default function EnvironmentsPage() {
                           <Input
                             className="flex-1 text-sm h-8"
                             placeholder="时段名称"
-                            value={slot.label}
-                            onChange={e => handleSlotChange(slot.id, 'label', e.target.value)}
+                            key={slot.id}
+                            defaultValue={slot.label}
+                            onChange={e => {
+                              if (!composingRef.current) {
+                                handleSlotChange(slot.id, 'label', e.target.value);
+                              }
+                            }}
+                            onCompositionStart={() => { composingRef.current = true; }}
+                            onCompositionEnd={e => {
+                              composingRef.current = false;
+                              handleSlotChange(slot.id, 'label', (e.target as HTMLInputElement).value);
+                            }}
                           />
                           <div className="flex items-center gap-1">
                             <Input

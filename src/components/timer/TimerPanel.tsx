@@ -5,33 +5,56 @@ import { useTimerStore } from '@/stores/timerStore';
 import { useBlockStore } from '@/stores/blockStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useSound } from '@/hooks/useSound';
+import { useAudioFiles } from '@/hooks/useAudioFiles';
 import { useConfetti } from '@/hooks/useConfetti';
+import { usePersonaStore } from '@/stores/personaStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
+import { ArrowLeft } from 'lucide-react';
+
+/** Module-level ref so TimerPage can stop playing audio */
+export const activeAudioCleanup = { current: null as (() => void) | null };
 
 export function TimerPanel() {
   const { phase, progress, timeStr, minutes, seconds, start, pause, resume, extend, shorten, complete, reset } = useTimer();
   const currentBlockId = useTimerStore(s => s.currentBlockId);
+  const lastElapsedSeconds = useTimerStore(s => s.lastElapsedSeconds);
   const updateBlockStatus = useBlockStore(s => s.updateBlockStatus);
   const setFocusMode = useUIStore(s => s.setFocusMode);
   const { play } = useSound();
   const { fire } = useConfetti();
+  const activePersonaId = usePersonaStore(s => s.activePersonaId);
+  const taskCompleteMusicEnabled = useSettingsStore(s => s.settings?.taskCompleteMusicEnabled ?? true);
+  const { playRandom } = useAudioFiles(activePersonaId ?? undefined);
   const prevPhase = useRef(phase);
 
   useEffect(() => {
     if (prevPhase.current !== 'completed' && phase === 'completed') {
-      play('block-complete');
+      // Play music only if enabled
+      if (taskCompleteMusicEnabled) {
+        const cleanup = playRandom('task_complete');
+        if (cleanup) {
+          activeAudioCleanup.current = () => { cleanup(); activeAudioCleanup.current = null; };
+        } else {
+          play('block-complete');
+        }
+      }
       fire('medium');
-      // Auto-complete block
       if (currentBlockId) {
-        updateBlockStatus(currentBlockId, 'completed', undefined);
+        const actualMins = Math.round(lastElapsedSeconds / 60);
+        updateBlockStatus(currentBlockId, 'completed', actualMins || 1);
       }
     }
     if (prevPhase.current !== 'running' && phase === 'running') {
       play('timer-start');
     }
     prevPhase.current = phase;
-  }, [phase, play, fire, currentBlockId, updateBlockStatus]);
+  }, [phase, play, fire, playRandom, currentBlockId, updateBlockStatus, lastElapsedSeconds, taskCompleteMusicEnabled]);
+
+  const handleUndo = () => {
+    reset();
+  };
 
   const handleStart = () => {
     if (currentBlockId) {
@@ -40,9 +63,12 @@ export function TimerPanel() {
   };
 
   const handleComplete = () => {
+    // Read elapsed BEFORE complete() resets remainingSeconds
+    const s = useTimerStore.getState();
+    const actualMins = Math.round((s.totalSeconds - s.remainingSeconds) / 60);
     complete();
     if (currentBlockId) {
-      updateBlockStatus(currentBlockId, 'completed', undefined);
+      updateBlockStatus(currentBlockId, 'completed', actualMins || 1);
     }
   };
 
@@ -53,7 +79,17 @@ export function TimerPanel() {
   const isIdle = phase === 'idle';
 
   return (
-    <div className="flex flex-col items-center gap-8">
+    <div className="relative flex flex-col items-center gap-8">
+      {/* Undo — top-left back arrow */}
+      {phase === 'running' && (
+        <button
+          onClick={handleUndo}
+          className="absolute -left-2 -top-2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          title="撤销计时"
+        >
+          <ArrowLeft size={18} />
+        </button>
+      )}
       <div className="relative">
         <TimerRing progress={progress} />
         {/* Time display in center of ring */}

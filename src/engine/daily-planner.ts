@@ -2,7 +2,9 @@ import { db } from '@/db';
 import { generateId } from '@/utils/id';
 import { startOfDayEpoch } from '@/utils/date';
 import { isTimeInPast } from '@/utils/time';
-import { REVIEW_BLOCK_MINUTES, ERROR_BLOCK_MINUTES } from './constants';
+import { REVIEW_BLOCK_MINUTES, ERROR_BLOCK_MINUTES, REVIEW_INTERVALS } from './constants';
+import { DAY_MS } from './ebbinghaus';
+import { useCollectionStore } from '@/stores/collectionStore';
 import type { Block, DailyPlan, Environment, AppSettings, Project } from '@/types';
 
 export interface PlanInput {
@@ -78,6 +80,14 @@ export async function generateFullPlan(input: PlanInput): Promise<FullPlanOutput
   await db.blocks.where({ personaId, status: 'scheduled' }).delete();
   await db.dailyPlans.where({ personaId }).delete();
 
+  // Snapshot knowledge points & error problems before simulation so we can
+  // restore original state when done (simulation mutates stage/nextReviewDate).
+  const allKPs = await db.knowledgePoints.where({ personaId, status: 'active' }).toArray();
+  const savedKPStates = new Map(allKPs.map(kp => [kp.id, { currentStage: kp.currentStage, nextReviewDate: kp.nextReviewDate }]));
+
+  const allErrors = await db.errorProblems.where({ personaId }).filter(e => e.status !== 'cleared').toArray();
+  const savedErrorStates = new Map(allErrors.map(e => [e.id, { nextReviewDate: e.nextReviewDate }]));
+
   // Get all active projects sorted by priority
   const projects = await db.projects
     .where({ personaId, status: 'active' })
@@ -106,6 +116,7 @@ export async function generateFullPlan(input: PlanInput): Promise<FullPlanOutput
       settings,
       projects,
       projectRemaining,
+      true, // isFullPlan — advance nextReviewDate to simulate review completion
     );
 
     if (result.blocks.length > 0) {
@@ -145,6 +156,43 @@ export async function generateFullPlan(input: PlanInput): Promise<FullPlanOutput
     daysGenerated++;
   }
 
+  // Restore knowledge point & error problem state so simulation doesn't
+  // permanently advance stages.
+  for (const [id, state] of savedKPStates) {
+    await db.knowledgePoints.update(id, { currentStage: state.currentStage, nextReviewDate: state.nextReviewDate, updatedAt: Date.now() });
+  }
+  for (const [id, state] of savedErrorStates) {
+    await db.errorProblems.update(id, { nextReviewDate: state.nextReviewDate });
+  }
+
+  // Merge in completed blocks that survived deletion so weekly/monthly views
+  // still show what was actually done.
+  const completedBlocks = await db.blocks
+    .where({ personaId, status: 'completed' })
+    .toArray();
+  for (const block of completedBlocks) {
+    const dayData = dailyPlans.get(block.date);
+    if (dayData) {
+      // Avoid duplicating block IDs if somehow already present
+      if (!dayData.plan.blockIds.includes(block.id)) {
+        dayData.plan.blockIds.push(block.id);
+        dayData.blocks.push(block);
+        await db.dailyPlans.update(dayData.plan.id, { blockIds: dayData.plan.blockIds });
+      }
+    } else if (block.date >= date && block.date < date + MAX_DAYS * 86400000) {
+      // Completed block on a day that has no generated plan — create a stub
+      const planId = generateId();
+      const stubPlan: DailyPlan = {
+        id: planId, personaId, environmentId: environment.id, date: block.date,
+        blockIds: [block.id],
+        availableMinutes: 0, mandatoryMinutes: 0, newLearningMinutes: 0,
+        status: 'active', generatedAt: Date.now(),
+      };
+      await db.dailyPlans.add(stubPlan);
+      dailyPlans.set(block.date, { plan: stubPlan, blocks: [block] });
+    }
+  }
+
   return { dailyPlans, warnings, totalDaysGenerated: daysGenerated };
 }
 
@@ -162,6 +210,7 @@ async function buildDayBlocks(
   settings: AppSettings,
   projects?: Project[],
   projectRemaining?: Map<string, number>,
+  isFullPlan?: boolean,
 ): Promise<DayBuildResult> {
   const warnings: string[] = [];
   const blocks: Block[] = [];
@@ -170,17 +219,20 @@ async function buildDayBlocks(
   // Step 1: Collect mandatory tasks for this date
   const dayEnd = date + 86399999; // end of day in ms
 
-  const dueReviews = await db.knowledgePoints
+  const allDueReviews = await db.knowledgePoints
     .where({ personaId, status: 'active' })
     .filter(kp => kp.nextReviewDate <= dayEnd)
     .toArray();
+  const dueReviews = allDueReviews;
 
-  const dueErrors = await db.errorProblems
+  const allDueErrors = await db.errorProblems
     .where({ personaId })
     .filter(e => e.status !== 'cleared' && e.nextReviewDate <= dayEnd)
     .toArray();
+  const dueErrors = allDueErrors;
 
-  const mandatoryMinutes = dueReviews.length * REVIEW_BLOCK_MINUTES + dueErrors.length * ERROR_BLOCK_MINUTES;
+  const mandatoryMinutes = dueReviews.reduce((sum, r) => sum + (r.reviewDurationMinutes || REVIEW_BLOCK_MINUTES), 0)
+    + dueErrors.length * ERROR_BLOCK_MINUTES;
 
   // Calculate available time from environment slots
   const isToday = startOfDayEpoch() === startOfDayEpoch(new Date(date));
@@ -193,121 +245,185 @@ async function buildDayBlocks(
     return sum + (eh * 60 + em) - (sh * 60 + sm);
   }, 0);
 
-  // Step 2: Check threshold
-  const thresholdMinutes = (settings.mandatoryThresholdPercent / 100) * availableMinutes;
-  const allowNewLearning = mandatoryMinutes <= thresholdMinutes;
+  // ── Simple queue-based fill: reviews first, then errors, then new learning ──
 
-  if (!allowNewLearning) {
-    warnings.push(`${new Date(date).toLocaleDateString('zh-CN')} 必须完成的任务超过${settings.mandatoryThresholdPercent}%阈值，不安排新学习`);
+  // Helper: Fisher-Yates shuffle
+  function shuffle<T>(arr: T[]): T[] {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
   }
 
-  // Step 3: Create mandatory blocks (reviews + errors)
-  const reviewSlots = envSlots.filter(s => s.allowedBlockTypes.includes('review'));
-  let reviewSlotIdx = 0;
+  // Prepare review queue (random order)
+  const reviewQueue = shuffle(dueReviews);
+  let reviewCursor = 0;
 
-  const reviewsBySubject = new Map<string, typeof dueReviews>();
-  for (const r of dueReviews) {
-    const list = reviewsBySubject.get(r.subjectId) || [];
-    list.push(r);
-    reviewsBySubject.set(r.subjectId, list);
-  }
+  // Prepare error queue (random order)
+  const errorQueue = shuffle(dueErrors);
+  let errorCursor = 0;
 
-  for (const [subjectId, reviews] of reviewsBySubject) {
-    if (reviewSlotIdx < reviewSlots.length) {
-      const slot = reviewSlots[reviewSlotIdx];
-      blocks.push({
-        id: generateId(), personaId, type: 'review', subjectId,
-        name: `复习 ${reviews.length} 个知识点`,
-        estimatedDurationMinutes: Math.min(REVIEW_BLOCK_MINUTES * reviews.length, slot.defaultDuration),
-        knowledgePointIds: reviews.map(r => r.id),
-        date, timeSlotStart: slot.startTime, timeSlotEnd: slot.endTime,
-        status: 'scheduled', sortOrder: sortOrder++,
-      });
-      reviewSlotIdx++;
+  // Prepare projects — filter by collection rules
+  let allProjects = projects || await db.projects
+    .where({ personaId })
+    .filter(p => p.status === 'active' || p.status === 'completed')
+    .toArray();
+
+  // Apply collection rules: only include projects that collections deem active
+  if (!projects) {
+    const collectionActiveIds = await useCollectionStore.getState().getActiveProjectIds(personaId);
+    if (collectionActiveIds.size > 0) {
+      // Check if any project is in a collection — if so, filter to only collection-active projects
+      const allCollections = await db.projectCollections.where({ personaId }).toArray();
+      const allManagedIds = new Set(allCollections.flatMap(c => c.projectIds));
+      if (allManagedIds.size > 0) {
+        // Projects managed by collections: only include if active
+        // Projects NOT in any collection: always include
+        allProjects = allProjects.filter(p =>
+          !allManagedIds.has(p.id) || collectionActiveIds.has(p.id)
+        );
+      }
     }
   }
 
-  if (dueErrors.length > 0 && reviewSlotIdx < reviewSlots.length) {
-    const slot = reviewSlots[reviewSlotIdx];
-    blocks.push({
-      id: generateId(), personaId, type: 'error_problem',
-      subjectId: dueErrors[0].subjectId,
-      name: `重做 ${dueErrors.length} 道错题`,
-      estimatedDurationMinutes: Math.min(ERROR_BLOCK_MINUTES * dueErrors.length, slot.defaultDuration),
-      errorProblemIds: dueErrors.map(e => e.id),
-      date, timeSlotStart: slot.startTime, timeSlotEnd: slot.endTime,
-      status: 'scheduled', sortOrder: sortOrder++,
-    });
+  const shuffledProjects = shuffle(allProjects);
+
+  const remaining = projectRemaining || new Map<string, number>();
+  if (!projectRemaining) {
+    for (const p of allProjects) {
+      remaining.set(p.id, p.total - p.completed);
+    }
   }
 
-  // Step 4: Allocate new learning + exercise by project priority
-  if (allowNewLearning) {
-    const remainingBudget = availableMinutes - mandatoryMinutes;
+  // Count completed blocks toward the daily limit (remaining work is
+  // already correct from total - completed, no need to deduct again)
+  const todayCompleted = await db.blocks
+    .where({ personaId, date, status: 'completed' })
+    .toArray();
+  const projectBlockCounts = new Map<string, number>();
+  for (const block of todayCompleted) {
+    if (block.projectId && block.type !== 'review' && block.type !== 'error_problem') {
+      projectBlockCounts.set(block.projectId, (projectBlockCounts.get(block.projectId) || 0) + 1);
+    }
+  }
 
-    const activeProjects = projects || await db.projects
-      .where({ personaId, status: 'active' })
-      .toArray();
-    activeProjects.sort((a, b) => a.priority - b.priority);
+  let projectCursor = 0;
 
-    const remaining = projectRemaining || new Map<string, number>();
-    if (!projectRemaining) {
-      for (const p of activeProjects) {
-        remaining.set(p.id, p.total - p.completed);
+  // Iterate through slots in chronological order
+  const sortedSlots = [...envSlots].sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  for (const slot of sortedSlots) {
+    const slotMinutes = getSlotMinutes(slot);
+    const slotStartMin = timeToMinutes(slot.startTime);
+    let cursorMin = slotStartMin; // current time cursor within the slot
+
+    // ── Priority 1: Reviews (highest priority) ──
+    while (reviewCursor < reviewQueue.length && cursorMin < slotStartMin + slotMinutes) {
+      const r = reviewQueue[reviewCursor];
+      const dur = r.reviewDurationMinutes || REVIEW_BLOCK_MINUTES;
+      // Allow 2 min overflow at slot end to keep block complete
+      if (cursorMin + dur > slotStartMin + slotMinutes + 2) break;
+      reviewCursor++;
+
+      blocks.push({
+        id: generateId(), personaId, type: 'review',
+        subjectId: r.subjectId,
+        name: `R${r.currentStage + 1} ${r.name}`,
+        estimatedDurationMinutes: dur,
+        knowledgePointIds: [r.id],
+        date,
+        timeSlotStart: minutesToTime(cursorMin),
+        timeSlotEnd: minutesToTime(cursorMin + dur),
+        status: 'scheduled', sortOrder: sortOrder++,
+      });
+      cursorMin += dur;
+
+      if (isFullPlan) {
+        const nextStage = Math.min(r.currentStage + 1, REVIEW_INTERVALS.length - 1);
+        const nextDate = date + REVIEW_INTERVALS[nextStage] * DAY_MS;
+        await db.knowledgePoints.update(r.id, { currentStage: nextStage, nextReviewDate: nextDate, updatedAt: Date.now() });
       }
     }
 
-    const slotUsed = new Map<string, number>();
-    let budgetLeft = remainingBudget;
+    // ── Priority 2: Error problems ──
+    while (errorCursor < errorQueue.length && cursorMin < slotStartMin + slotMinutes) {
+      if (cursorMin + ERROR_BLOCK_MINUTES > slotStartMin + slotMinutes + 2) break;
+      const e = errorQueue[errorCursor];
+      errorCursor++;
 
-    for (const project of activeProjects) {
-      if (budgetLeft <= 0) break;
+      blocks.push({
+        id: generateId(), personaId, type: 'error_problem',
+        subjectId: e.subjectId,
+        name: `重做 ${e.name}`,
+        estimatedDurationMinutes: ERROR_BLOCK_MINUTES,
+        errorProblemIds: [e.id],
+        date,
+        timeSlotStart: minutesToTime(cursorMin),
+        timeSlotEnd: minutesToTime(cursorMin + ERROR_BLOCK_MINUTES),
+        status: 'scheduled', sortOrder: sortOrder++,
+      });
+      cursorMin += ERROR_BLOCK_MINUTES;
 
-      const projRemaining = remaining.get(project.id) || 0;
-      if (projRemaining <= 0) continue;
+      if (isFullPlan) {
+        await db.errorProblems.update(e.id, { nextReviewDate: date + DAY_MS });
+      }
+    }
 
-      const estMinutes = Math.min(
-        estimateProjectSession(project, settings.defaultBlockDuration, projRemaining),
-        budgetLeft,
-      );
+    // ── Priority 3: New learning / exercise ──
+    // dailyBlockLimit: 0 = skip, -1 = unlimited, N = exactly N blocks today (incl. completed)
+    {
+      const slotEndMin = slotStartMin + slotMinutes;
+      let loops = 0;
+      const maxLoops = shuffledProjects.length * 3;
 
-      const blockType: Block['type'] = project.category === 'exercise' ? 'exercise' : 'new_learning';
-      const matchingSlots = envSlots.filter(s => s.allowedBlockTypes.includes(blockType));
+      while (cursorMin < slotEndMin && loops < maxLoops) {
+        loops++;
+        const proj = shuffledProjects[projectCursor % shuffledProjects.length];
+        projectCursor++;
 
-      for (const slot of matchingSlots) {
-        const usedInSlot = slotUsed.get(slot.id) || 0;
-        const slotCapacity = getSlotMinutes(slot) - usedInSlot;
+        if (proj.dailyBlockLimit === 0) continue;
 
-        if (slotCapacity >= estMinutes) {
-          if (project.subjectId && slot.allowedSubjectIds.length > 0 &&
-              !slot.allowedSubjectIds.includes(project.subjectId)) {
-            continue;
-          }
+        const projRemaining = remaining.get(proj.id) || 0;
+        if (projRemaining <= 0) continue;
 
-          blocks.push({
-            id: generateId(), personaId, type: blockType,
-            subjectId: project.subjectId, projectId: project.id,
-            name: project.name,
-            estimatedDurationMinutes: estMinutes,
-            date, timeSlotStart: slot.startTime, timeSlotEnd: slot.endTime,
-            status: 'scheduled', sortOrder: sortOrder++,
-          });
-
-          slotUsed.set(slot.id, usedInSlot + estMinutes);
-          budgetLeft -= estMinutes;
-
-          // Update remaining for this project
-          if (project.measureType === 'minutes') {
-            remaining.set(project.id, projRemaining - estMinutes);
-          } else if (project.currentSpeedEWMA > 0) {
-            const amountCompleted = (estMinutes / 60) * project.currentSpeedEWMA;
-            remaining.set(project.id, Math.max(0, projRemaining - amountCompleted));
-          } else {
-            // Without speed data, treat the session as 1 unit
-            remaining.set(project.id, Math.max(0, projRemaining - 1));
-          }
-
-          break;
+        // Enforce daily limit
+        if (proj.dailyBlockLimit > 0) {
+          const currentCount = projectBlockCounts.get(proj.id) || 0;
+          if (currentCount >= proj.dailyBlockLimit) continue;
         }
+
+        // Use FULL block duration — never truncated
+        const blockMins = settings.defaultBlockDuration;
+        if (blockMins <= 0) continue;
+
+        // If block can't fit in this slot, skip — next slot picks it up
+        if (cursorMin + blockMins > slotEndMin) continue;
+
+        const blockType: Block['type'] = proj.category === 'exercise' ? 'exercise' : 'new_learning';
+        blocks.push({
+          id: generateId(), personaId, type: blockType,
+          subjectId: proj.subjectId, projectId: proj.id,
+          name: proj.name,
+          estimatedDurationMinutes: blockMins,
+          date,
+          timeSlotStart: minutesToTime(cursorMin),
+          timeSlotEnd: minutesToTime(cursorMin + blockMins),
+          status: 'scheduled', sortOrder: sortOrder++,
+        });
+
+        cursorMin += blockMins;
+
+        if (proj.measureType === 'minutes') {
+          remaining.set(proj.id, projRemaining - blockMins);
+        } else if (proj.currentSpeedEWMA > 0) {
+          remaining.set(proj.id, Math.max(0, projRemaining - (blockMins / 60) * proj.currentSpeedEWMA));
+        } else {
+          remaining.set(proj.id, Math.max(0, projRemaining - 1));
+        }
+
+        projectBlockCounts.set(proj.id, (projectBlockCounts.get(proj.id) || 0) + 1);
       }
     }
   }
@@ -315,21 +431,18 @@ async function buildDayBlocks(
   return { blocks, availableMinutes, mandatoryMinutes, warnings };
 }
 
-function getSlotMinutes(slot: { startTime: string; endTime: string }): number {
-  const [sh, sm] = slot.startTime.split(':').map(Number);
-  const [eh, em] = slot.endTime.split(':').map(Number);
-  return (eh * 60 + em) - (sh * 60 + sm);
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
 }
 
-function estimateProjectSession(project: Project, defaultDuration: number, remainingOverride?: number): number {
-  const remaining = remainingOverride ?? (project.total - project.completed);
-  if (project.measureType === 'minutes') {
-    return Math.min(remaining, defaultDuration);
-  }
-  if (project.currentSpeedEWMA > 0) {
-    const hoursNeeded = remaining / project.currentSpeedEWMA;
-    const minutesNeeded = Math.ceil(hoursNeeded * 60);
-    return Math.min(minutesNeeded, defaultDuration);
-  }
-  return defaultDuration;
+function minutesToTime(m: number): string {
+  const h = Math.floor(m / 60) % 24;
+  const min = m % 60;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
+
+function getSlotMinutes(slot: { startTime: string; endTime: string }): number {
+  return timeToMinutes(slot.endTime) - timeToMinutes(slot.startTime);
+}
+

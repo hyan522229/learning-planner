@@ -6,12 +6,14 @@ import { useBlockStore } from '@/stores/blockStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useSound } from '@/hooks/useSound';
 import { useConfetti } from '@/hooks/useConfetti';
-import { TimerPanel } from '@/components/timer/TimerPanel';
+import { TimerPanel, activeAudioCleanup } from '@/components/timer/TimerPanel';
+import { RestTimer } from '@/components/timer/RestTimer';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Progress } from '@/components/ui';
+import { StartButton } from '@/components/ui/StartButton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
 import { db } from '@/db';
 import { formatDurationCompact } from '@/utils/time';
-import { Play, Plus, ArrowLeft } from 'lucide-react';
+import { Play, Plus, ArrowLeft, Square } from 'lucide-react';
 
 export default function TimerPage() {
   const navigate = useNavigate();
@@ -25,11 +27,22 @@ export default function TimerPage() {
   const phase = useTimerStore(s => s.phase);
   const totalSeconds = useTimerStore(s => s.totalSeconds);
   const remainingSeconds = useTimerStore(s => s.remainingSeconds);
+  const lastElapsedSeconds = useTimerStore(s => s.lastElapsedSeconds);
   const start = useTimerStore(s => s.start);
   const updateBlockStatus = useBlockStore(s => s.updateBlockStatus);
   const updateProjectProgress = useProjectStore(s => s.updateProgress);
   const { play } = useSound();
   const { fire } = useConfetti();
+
+  // Force re-render check for active audio
+  const [, setTick] = useState(0);
+  const stopAudio = () => {
+    if (activeAudioCleanup.current) {
+      activeAudioCleanup.current();
+      activeAudioCleanup.current = null;
+      setTick(t => t + 1);
+    }
+  };
 
   const currentBlock = useLiveQuery(
     async () => {
@@ -52,13 +65,23 @@ export default function TimerPage() {
     if (prevPhase.current !== 'completed' && phase === 'completed') {
       if (currentBlock?.projectId) {
         setProgressAmount('');
-        setProgressDuration(String(Math.floor(totalSeconds / 60)));
+        // Auto-fill with elapsed time from timer (user can change)
+        setProgressDuration(String(Math.round(lastElapsedSeconds / 60) || 1));
         setIsAutoCompletion(true);
         setShowProgress(true);
       }
+      // Force re-render so "停止铃声" button appears
+      setTick(t => t + 1);
+    }
+    if (phase !== 'completed') {
+      // Clean up stale audio ref when phase changes away from completed
+      if (activeAudioCleanup.current) {
+        activeAudioCleanup.current = null;
+        setTick(t => t + 1);
+      }
     }
     prevPhase.current = phase;
-  }, [phase, currentBlock?.projectId, totalSeconds]);
+  }, [phase, currentBlock?.projectId, lastElapsedSeconds]);
 
   const handleStartQuick = () => {
     play('timer-start');
@@ -66,14 +89,18 @@ export default function TimerPage() {
   };
 
   const handleSaveProgress = async () => {
+    const minutes = Number(progressDuration) || 45;
     if (currentBlock?.projectId && progressAmount) {
       const amount = Number(progressAmount);
-      const minutes = Number(progressDuration) || 45;
       if (amount > 0) {
         await updateProjectProgress(currentBlock.projectId, amount, minutes);
         fire('medium');
         play('achievement');
       }
+    }
+    // Update block's actual duration to user-reported time
+    if (currentBlock?.id) {
+      await db.blocks.update(currentBlock.id, { actualDurationMinutes: minutes });
     }
     setShowProgress(false);
   };
@@ -155,12 +182,19 @@ export default function TimerPage() {
 
       <TimerPanel />
 
+      {activeAudioCleanup.current && (
+        <Button onClick={stopAudio} variant="outline" size="sm" className="w-full gap-2 text-muted-foreground">
+          <Square size={14} /> 停止铃声
+        </Button>
+      )}
+
+      <RestTimer />
+
       {phase === 'idle' && !currentBlockId && (
         <div className="space-y-3">
-          <Button onClick={handleStartQuick} variant="outline" className="w-full gap-2">
-            <Play size={16} />
+          <StartButton onClick={handleStartQuick} variant="outline" size="lg">
             快速开始 45 分钟计时
-          </Button>
+          </StartButton>
           <p className="text-center text-sm text-muted-foreground">
             或从"今日规划"页面选择一个学习块来启动计时器
           </p>

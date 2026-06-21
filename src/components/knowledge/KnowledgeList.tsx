@@ -20,7 +20,7 @@ export function KnowledgeList() {
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 text-muted-foreground">
-            <div className="text-4xl mb-3">📚</div>
+            <div className="text-4xl mb-3">📖</div>
             <p className="text-sm">还没有添加任何知识点</p>
             <p className="text-xs mt-1">点击右上角的"添加知识点"开始记录</p>
           </div>

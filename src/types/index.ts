@@ -11,6 +11,7 @@ export interface Persona {
   id: string;
   name: string;
   avatarEmoji: string;
+  avatarImage?: string;
   color: string;
   createdAt: number;
 }
@@ -34,6 +35,7 @@ export interface KnowledgePoint {
   currentStage: number;
   nextReviewDate: number;
   reviewDates: number[];
+  reviewDurationMinutes: number;
   masteryRating: number;
   consecutiveCorrect: number;
   errorCount: number;
@@ -63,6 +65,8 @@ export interface Project {
   speedRecords: SpeedRecord[];
   currentSpeedEWMA: number;
   status: 'active' | 'completed' | 'archived';
+  createReviewOnComplete: boolean;
+  dailyBlockLimit: number;
   createdAt: number;
   completedAt: number | null;
 }
@@ -159,6 +163,8 @@ export interface AppSettings {
   recoveryDayEnabled: boolean;
   autoPromptNewProject: boolean;
   soundEnabled: boolean;
+  taskCompleteMusicEnabled: boolean;
+  restAlarmEnabled: boolean;
   theme: 'light' | 'dark' | 'system';
   newKnowledgePerDayLimit: number;
   autoSkipEnabled: boolean;
@@ -180,4 +186,26 @@ export interface TimerState {
   totalSeconds: number;
   remainingSeconds: number;
   startedAt: number | null;
+  targetEnd: number | null;
+  lastElapsedSeconds: number;
+}
+
+export type AudioCategory = 'task_complete' | 'rest_alarm';
+
+export interface ProjectCollection {
+  id: string;
+  personaId: string;
+  name: string;
+  projectIds: string[];
+  mode: 'single' | 'dual';
+  createdAt: number;
+}
+
+export interface AudioFile {
+  id: string;
+  personaId: string;
+  category: AudioCategory;
+  name: string;
+  data: Blob;
+  createdAt: number;
 }

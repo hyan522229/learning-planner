@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter, Button, Input, Label, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui';
 import { usePersonaStore } from '@/stores/personaStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSubjectStore } from '@/stores/subjectStore';
 import { db } from '@/db';
-import { Save, Trash2, Plus, Pencil, Check, X } from 'lucide-react';
+import { Save, Trash2, Plus, Pencil, Check, X, Download, Upload, Music, VolumeX, Camera } from 'lucide-react';
+import { useAudioFiles } from '@/hooks/useAudioFiles';
 
 export default function SettingsPage() {
   const activePersonaId = usePersonaStore(s => s.activePersonaId);
@@ -19,11 +20,14 @@ export default function SettingsPage() {
   const addSubject = useSubjectStore(s => s.addSubject);
   const removeSubject = useSubjectStore(s => s.removeSubject);
 
+  const { allFiles, addFile, removeFile, getByCategory } = useAudioFiles(activePersonaId ?? undefined);
   const [newPersonaName, setNewPersonaName] = useState('');
   const [newSubjectName, setNewSubjectName] = useState('');
   const [deletePersonaId, setDeletePersonaId] = useState<string | null>(null);
   const [renamePersonaId, setRenamePersonaId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const composingRef = useRef(false);
+  const resetKeys = useRef({ subject: 0, persona: 0, rename: 0 });
 
   useEffect(() => {
     if (activePersonaId) {
@@ -34,8 +38,9 @@ export default function SettingsPage() {
 
   const handleAddPersona = async () => {
     if (!newPersonaName.trim()) return;
-    await createPersona(newPersonaName.trim(), '👤', '#6366f1');
+    await createPersona(newPersonaName.trim(), '🧑', '#6366f1');
     setNewPersonaName('');
+    resetKeys.current.persona++;
   };
 
   const handleAddSubject = async () => {
@@ -51,6 +56,59 @@ export default function SettingsPage() {
       icon: 'book-open',
     });
     setNewSubjectName('');
+    resetKeys.current.subject++;
+  };
+
+  const handleExport = async () => {
+    const data = {
+      personas: await db.personas.toArray(),
+      subjects: await db.subjects.toArray(),
+      knowledgePoints: await db.knowledgePoints.toArray(),
+      projects: await db.projects.toArray(),
+      blocks: await db.blocks.toArray(),
+      errorProblems: await db.errorProblems.toArray(),
+      environments: await db.environments.toArray(),
+      dailyPlans: await db.dailyPlans.toArray(),
+      dailyStatuses: await db.dailyStatuses.toArray(),
+      settings: await db.settings.toArray(),
+      progressLogs: await db.progressLogs.toArray(),
+      exportedAt: new Date().toISOString(),
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `learning-planner-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!data.exportedAt || !data.personas) throw new Error('Invalid backup file');
+        await db.transaction('rw', db.tables, async () => {
+          for (const table of db.tables) await table.clear();
+          for (const table of db.tables) {
+            const key = table.name;
+            if (data[key] && data[key].length > 0) await table.bulkAdd(data[key]);
+          }
+        });
+        alert('数据导入成功！请刷新页面。');
+        window.location.reload();
+      } catch {
+        alert('导入失败：文件格式不正确');
+      }
+    };
+    input.click();
   };
 
   return (
@@ -62,6 +120,8 @@ export default function SettingsPage() {
           <TabsTrigger value="general">通用设置</TabsTrigger>
           <TabsTrigger value="subjects">科目管理</TabsTrigger>
           <TabsTrigger value="personas">人物管理</TabsTrigger>
+          <TabsTrigger value="audio">音频设置</TabsTrigger>
+          <TabsTrigger value="data">数据管理</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-4">
@@ -159,6 +219,24 @@ export default function SettingsPage() {
                       <div className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform mx-0.5 ${settings.soundEnabled ? 'translate-x-5' : ''}`} />
                     </button>
                   </div>
+                  <div className="flex items-center justify-between">
+                    <Label>任务完成音乐</Label>
+                    <button
+                      onClick={() => updateSettings({ taskCompleteMusicEnabled: !settings.taskCompleteMusicEnabled })}
+                      className={`h-6 w-11 rounded-full transition-colors ${settings.taskCompleteMusicEnabled ? 'bg-brand-500' : 'bg-muted'}`}
+                    >
+                      <div className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform mx-0.5 ${settings.taskCompleteMusicEnabled ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label>休息结束闹铃</Label>
+                    <button
+                      onClick={() => updateSettings({ restAlarmEnabled: !settings.restAlarmEnabled })}
+                      className={`h-6 w-11 rounded-full transition-colors ${settings.restAlarmEnabled ? 'bg-brand-500' : 'bg-muted'}`}
+                    >
+                      <div className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform mx-0.5 ${settings.restAlarmEnabled ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
                 </CardContent>
               </Card>
             </>
@@ -189,9 +267,12 @@ export default function SettingsPage() {
               <div className="flex gap-2 mt-4">
                 <Input
                   placeholder="新科目名称"
-                  value={newSubjectName}
-                  onChange={e => setNewSubjectName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleAddSubject()}
+                  key={`subj-${resetKeys.current.subject}`}
+                  defaultValue=""
+                  onChange={e => { if (!composingRef.current) setNewSubjectName(e.target.value); }}
+                  onCompositionStart={() => { composingRef.current = true; }}
+                  onCompositionEnd={e => { composingRef.current = false; setNewSubjectName((e.target as HTMLInputElement).value); }}
+                  onKeyDown={e => { if (e.key === 'Enter' && !composingRef.current) handleAddSubject(); }}
                 />
                 <Button onClick={handleAddSubject} size="sm"><Plus size={14} /> 添加</Button>
               </div>
@@ -205,17 +286,54 @@ export default function SettingsPage() {
             <CardContent className="space-y-2">
               {personas.map(p => {
                 const isRenaming = renamePersonaId === p.id;
+                const handleAvatarUpload = () => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/*';
+                  input.onchange = async () => {
+                    const file = input.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                      await db.personas.update(p.id, { avatarImage: reader.result as string });
+                      usePersonaStore.getState().loadPersonas();
+                    };
+                    reader.readAsDataURL(file);
+                  };
+                  input.click();
+                };
                 return (
                   <div key={p.id} className="flex items-center gap-2 p-2 rounded-lg border text-sm">
-                    <span>{p.avatarEmoji}</span>
+                    <button
+                      onClick={handleAvatarUpload}
+                      className="relative shrink-0 group"
+                      title="更换头像"
+                    >
+                      {p.avatarImage ? (
+                        <img src={p.avatarImage} className="w-8 h-8 rounded-full object-cover" alt="" />
+                      ) : (
+                        <span
+                          className="flex items-center justify-center w-8 h-8 rounded-full text-lg"
+                          style={{ backgroundColor: p.color }}
+                        >
+                          {p.avatarEmoji}
+                        </span>
+                      )}
+                      <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Camera size={12} className="text-white" />
+                      </span>
+                    </button>
                     {isRenaming ? (
                       <>
                         <Input
                           className="h-7 text-sm flex-1"
-                          value={renameValue}
-                          onChange={e => setRenameValue(e.target.value)}
+                          key={`rename-${p.id}-${resetKeys.current.rename}`}
+                          defaultValue={p.name}
+                          onChange={e => { if (!composingRef.current) setRenameValue(e.target.value); }}
+                          onCompositionStart={() => { composingRef.current = true; }}
+                          onCompositionEnd={e => { composingRef.current = false; setRenameValue((e.target as HTMLInputElement).value); }}
                           onKeyDown={e => {
-                            if (e.key === 'Enter') {
+                            if (e.key === 'Enter' && !composingRef.current) {
                               db.personas.update(p.id, { name: renameValue });
                               usePersonaStore.getState().loadPersonas();
                               setRenamePersonaId(null);
@@ -261,12 +379,77 @@ export default function SettingsPage() {
               <div className="flex gap-2 mt-4">
                 <Input
                   placeholder="新人物名称"
-                  value={newPersonaName}
-                  onChange={e => setNewPersonaName(e.target.value)}
+                  key={`persona-${resetKeys.current.persona}`}
+                  defaultValue=""
+                  onChange={e => { if (!composingRef.current) setNewPersonaName(e.target.value); }}
+                  onCompositionStart={() => { composingRef.current = true; }}
+                  onCompositionEnd={e => { composingRef.current = false; setNewPersonaName((e.target as HTMLInputElement).value); }}
                   onKeyDown={e => e.key === 'Enter' && handleAddPersona()}
                 />
                 <Button onClick={handleAddPersona} size="sm"><Plus size={14} /> 添加</Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="audio" className="space-y-4">
+          <AudioSection
+            title="任务完成音乐"
+            description="学习块计时完成后随机播放"
+            files={getByCategory('task_complete')}
+            onAdd={(file) => addFile('task_complete', file)}
+            onRemove={removeFile}
+          />
+          <AudioSection
+            title="休息结束闹铃"
+            description="休息倒计时结束后随机播放"
+            files={getByCategory('rest_alarm')}
+            onAdd={(file) => addFile('rest_alarm', file)}
+            onRemove={removeFile}
+          />
+        </TabsContent>
+
+        <TabsContent value="data">
+          <Card>
+            <CardHeader><CardTitle>数据备份与恢复</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                导出所有数据为 JSON 文件，可用于备份或迁移至其他设备。导入将覆盖当前所有数据。
+              </p>
+              <div className="flex gap-3">
+                <Button onClick={handleExport} className="gap-2">
+                  <Download size={16} /> 导出备份
+                </Button>
+                <Button onClick={handleImport} variant="outline" className="gap-2">
+                  <Upload size={16} /> 导入备份
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4 border-red-200">
+            <CardHeader><CardTitle className="text-red-600">危险操作</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                清空所有数据将删除所有人物、项目、知识点、学习记录等。此操作不可撤销，请先导出备份。
+              </p>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (window.confirm('确定要清空所有数据吗？此操作不可撤销。\n\n建议先导出备份。')) {
+                    if (window.confirm('再次确认：所有数据将被永久删除。')) {
+                      db.transaction('rw', db.tables, async () => {
+                        for (const table of db.tables) await table.clear();
+                      }).then(() => {
+                        alert('数据已清空。页面将刷新。');
+                        window.location.reload();
+                      });
+                    }
+                  }
+                }}
+                className="gap-2"
+              >
+                <Trash2 size={16} /> 清空所有数据
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -293,5 +476,67 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ─── Audio upload section ───
+
+function AudioSection({
+  title, description, files, onAdd, onRemove,
+}: {
+  title: string;
+  description: string;
+  files: { id: string; name: string }[];
+  onAdd: (file: File) => void;
+  onRemove: (id: string) => void;
+}) {
+  const handlePick = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*';
+    input.multiple = true;
+    input.onchange = () => {
+      const picked = input.files;
+      if (!picked) return;
+      for (const file of Array.from(picked)) {
+        onAdd(file);
+      }
+    };
+    input.click();
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Music size={18} className="text-brand-500" />
+          {title}
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {files.length === 0 ? (
+          <div className="text-center py-4 text-muted-foreground text-sm">
+            <VolumeX size={24} className="mx-auto mb-2 opacity-30" />
+            暂无音乐文件
+          </div>
+        ) : (
+          files.map(f => (
+            <div key={f.id} className="flex items-center justify-between p-2 rounded-lg border text-sm">
+              <span className="truncate flex-1">{f.name}</span>
+              <button
+                onClick={() => onRemove(f.id)}
+                className="p-1 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))
+        )}
+        <Button onClick={handlePick} variant="outline" size="sm" className="w-full gap-2 mt-2">
+          <Plus size={14} /> 添加音乐
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'motion/react';
-import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, Badge } from '@/components/ui';
+import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, Badge, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
+import { PillButton } from '@/components/ui/PillButton';
 import { Plus, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { usePersonaStore } from '@/stores/personaStore';
 import { useSubjectStore } from '@/stores/subjectStore';
 import { useErrorProblemStore } from '@/stores/errorProblemStore';
+import { ReviewCalendar, type CalendarItem } from '@/components/knowledge/ReviewCalendar';
 import { db } from '@/db';
 import { formatDate } from '@/utils/date';
 import type { ErrorProblem } from '@/types';
@@ -14,6 +16,7 @@ import type { ErrorProblem } from '@/types';
 export default function ErrorProblemsPage() {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
+  const composingRef = useRef(false);
   const [subjectId, setSubjectId] = useState('');
 
   const activePersonaId = usePersonaStore(s => s.activePersonaId);
@@ -26,6 +29,8 @@ export default function ErrorProblemsPage() {
   useEffect(() => {
     if (activePersonaId) loadSubjects(activePersonaId);
   }, [activePersonaId, loadSubjects]);
+
+  const subjectMap = useMemo(() => new Map(subjects.map(s => [s.id, s])), [subjects]);
 
   const errors = useLiveQuery(
     async () => {
@@ -49,6 +54,19 @@ export default function ErrorProblemsPage() {
 
   const dueCount = errors.filter(e => e.status !== 'cleared' && e.nextReviewDate <= new Date().getTime()).length;
 
+  const calendarItems: CalendarItem[] = useMemo(() =>
+    errors
+      .filter(e => e.status !== 'cleared')
+      .map(e => ({
+        id: e.id,
+        name: e.name,
+        date: e.nextReviewDate,
+        color: subjectMap.get(e.subjectId || '')?.color || '#e0736a',
+        stageStatus: 'current' as const,
+      })),
+    [errors, subjectMap]
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -58,12 +76,18 @@ export default function ErrorProblemsPage() {
             {dueCount > 0 ? `${dueCount} 道错题等待重做` : '暂无待处理的错题'}
           </p>
         </div>
-        <Button onClick={() => setShowForm(true)} size="sm">
-          <Plus size={16} /> 添加错题
-        </Button>
+        <PillButton onClick={() => setShowForm(true)} >
+          <Plus size={15} /> 添加错题
+        </PillButton>
       </div>
 
-      <div className="space-y-2">
+      <Tabs defaultValue="list">
+        <TabsList>
+          <TabsTrigger value="list">全部错题</TabsTrigger>
+          <TabsTrigger value="calendar">复习日历</TabsTrigger>
+        </TabsList>
+        <TabsContent value="list">
+          <div className="space-y-2">
         <AnimatePresence>
           {errors.map((problem) => {
             const subject = subjects.find(s => s.id === problem.subjectId);
@@ -125,11 +149,19 @@ export default function ErrorProblemsPage() {
 
         {errors.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
-            <div className="text-4xl mb-3">📝</div>
+            <div className="text-4xl mb-3">✏️</div>
             <p className="text-sm">还没有添加错题</p>
           </div>
         )}
-      </div>
+          </div>
+        </TabsContent>
+        <TabsContent value="calendar">
+          <ReviewCalendar
+            items={calendarItems}
+            formatLabel={(item) => item.name.replace(/^\[项目\]\s*/g, '').replace(/part/gi, '-')}
+          />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="sm:max-w-md">
@@ -141,8 +173,11 @@ export default function ErrorProblemsPage() {
               <Label>错题名称</Label>
               <Input
                 placeholder="例如：2024真题第3题"
-                value={name}
-                onChange={e => setName(e.target.value)}
+                key={String(showForm)}
+                defaultValue={name}
+                onChange={e => { if (!composingRef.current) setName(e.target.value); }}
+                onCompositionStart={() => { composingRef.current = true; }}
+                onCompositionEnd={e => { composingRef.current = false; setName((e.target as HTMLInputElement).value); }}
                 autoFocus
               />
             </div>

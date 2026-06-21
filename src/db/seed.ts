@@ -93,7 +93,7 @@ export async function seedDatabase() {
   await db.personas.add({
     id: personaId,
     name: '我',
-    avatarEmoji: '👨‍🎓',
+    avatarEmoji: '🧑',
     color: '#6366f1',
     createdAt: now,
   });
@@ -186,6 +186,8 @@ export async function seedDatabase() {
     recoveryDayEnabled: true,
     autoPromptNewProject: true,
     soundEnabled: true,
+    taskCompleteMusicEnabled: true,
+    restAlarmEnabled: true,
     theme: 'system',
     newKnowledgePerDayLimit: 3,
     autoSkipEnabled: false,

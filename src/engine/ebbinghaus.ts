@@ -1,7 +1,44 @@
 import type { KnowledgePoint } from '@/types';
 import { REVIEW_INTERVALS } from './constants';
 
-const DAY_MS = 86400000;
+export const DAY_MS = 86400000;
+
+/**
+ * Repair a knowledge point's reviewDates if they were created by the old
+ * (absolute-offset) algorithm. Does NOT force past-due reviews to today —
+ * the daily planner already queries `nextReviewDate <= dayEnd` which
+ * naturally catches overdue items.
+ */
+export function repairKnowledgePoint(point: KnowledgePoint): {
+  reviewDates: number[];
+  nextReviewDate: number;
+  wasBroken: boolean;
+} {
+  const correctReviewDates = calculateReviewDates(point.studyDate);
+
+  // Detect if dates were from the old (broken) absolute-offset algorithm.
+  const oldR2 = point.studyDate + 2 * DAY_MS;
+  const actualR2 = point.reviewDates[1];
+  const wasBroken = Math.abs(actualR2 - oldR2) < DAY_MS && Math.abs(actualR2 - correctReviewDates[1]) >= DAY_MS;
+
+  if (wasBroken) {
+    // Fix the reviewDates array and recompute nextReviewDate from the
+    // correct cumulative dates at the current stage.
+    const stage = Math.min(point.currentStage, REVIEW_INTERVALS.length - 1);
+    return {
+      reviewDates: correctReviewDates,
+      nextReviewDate: correctReviewDates[stage],
+      wasBroken: true,
+    };
+  }
+
+  // Data is valid — leave it alone.
+  return {
+    reviewDates: point.reviewDates,
+    nextReviewDate: point.nextReviewDate,
+    wasBroken: false,
+  };
+}
 
 /** Build cumulative review dates from a start date. Used only for initial creation. */
 export function calculateReviewDates(fromDate: number): number[] {
@@ -40,12 +77,14 @@ export function advanceStage(point: KnowledgePoint, allowSkip: boolean = false):
     nextStage = Math.min(nextStage + 1, REVIEW_INTERVALS.length);
   }
 
+  // Keep reviewDates rooted at studyDate for calendar display
+  const reviewDates = point.reviewDates.length === 10 ? point.reviewDates : calculateReviewDates(point.studyDate);
+
   if (nextStage >= REVIEW_INTERVALS.length) {
-    const newDates = calculateReviewDates(Date.now());
     return {
       currentStage: REVIEW_INTERVALS.length,
-      nextReviewDate: newDates[REVIEW_INTERVALS.length - 1],
-      reviewDates: newDates,
+      nextReviewDate: reviewDates[REVIEW_INTERVALS.length - 1],
+      reviewDates,
       consecutiveCorrect: newConsecutive,
       errorCount: 0,
       errorAtStage: 0,
@@ -55,11 +94,10 @@ export function advanceStage(point: KnowledgePoint, allowSkip: boolean = false):
     };
   }
 
-  const newDates = calculateReviewDates(Date.now());
   return {
     currentStage: nextStage,
     nextReviewDate: Date.now() + REVIEW_INTERVALS[nextStage] * DAY_MS,
-    reviewDates: newDates,
+    reviewDates,
     consecutiveCorrect: newConsecutive,
     errorCount: 0,
     errorAtStage: 0,
@@ -78,14 +116,14 @@ export function advanceStage(point: KnowledgePoint, allowSkip: boolean = false):
 export function handleError(point: KnowledgePoint): StageResult {
   const stage = point.currentStage;
   const newErrorCount = (point.errorAtStage === stage ? point.errorCount : 0) + 1;
+  const reviewDates = point.reviewDates.length === 10 ? point.reviewDates : calculateReviewDates(point.studyDate);
 
   // Same stage error 3+ times → reset to R1
   if (newErrorCount >= 3) {
-    const newDates = calculateReviewDates(Date.now());
     return {
       currentStage: 0,
-      nextReviewDate: newDates[0],
-      reviewDates: newDates,
+      nextReviewDate: Date.now() + REVIEW_INTERVALS[0] * DAY_MS,
+      reviewDates,
       consecutiveCorrect: 0,
       errorCount: 0,
       errorAtStage: 0,
@@ -98,11 +136,10 @@ export function handleError(point: KnowledgePoint): StageResult {
   // Same stage error 2 times → downgrade one stage
   if (newErrorCount >= 2) {
     const downgradedStage = Math.max(0, stage - 1);
-    const newDates = calculateReviewDates(Date.now());
     return {
       currentStage: downgradedStage,
-      nextReviewDate: newDates[0],
-      reviewDates: newDates,
+      nextReviewDate: Date.now() + REVIEW_INTERVALS[downgradedStage] * DAY_MS,
+      reviewDates,
       consecutiveCorrect: 0,
       errorCount: 0,
       errorAtStage: 0,
@@ -113,11 +150,10 @@ export function handleError(point: KnowledgePoint): StageResult {
   }
 
   // First error at this stage → insert makeup review tomorrow
-  const newDates = calculateReviewDates(Date.now());
   return {
     currentStage: stage,
-    nextReviewDate: newDates[0],
-    reviewDates: newDates,
+    nextReviewDate: Date.now() + DAY_MS,
+    reviewDates,
     consecutiveCorrect: 0,
     errorCount: newErrorCount,
     errorAtStage: stage,

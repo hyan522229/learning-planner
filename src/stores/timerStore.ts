@@ -18,6 +18,8 @@ const initialState: TimerState = {
   totalSeconds: 0,
   remainingSeconds: 0,
   startedAt: null,
+  targetEnd: null,
+  lastElapsedSeconds: 0,
 };
 
 export const useTimerStore = create<TimerState & TimerActions>((set) => ({
@@ -29,32 +31,52 @@ export const useTimerStore = create<TimerState & TimerActions>((set) => ({
     totalSeconds: durationMinutes * 60,
     remainingSeconds: durationMinutes * 60,
     startedAt: Date.now(),
+    targetEnd: Date.now() + durationMinutes * 60000,
   }),
 
-  pause: () => set({ phase: 'paused' }),
+  pause: () => set({ phase: 'paused', targetEnd: null }),
 
-  resume: () => set({ phase: 'running', startedAt: Date.now() }),
+  resume: () => set(s => ({
+    phase: 'running',
+    startedAt: Date.now(),
+    targetEnd: Date.now() + s.remainingSeconds * 1000,
+  })),
 
   tick: () => set(s => {
-    if (s.phase !== 'running') return {};
-    const newRemaining = Math.max(0, s.remainingSeconds - 1);
-    if (newRemaining <= 0) {
-      return { remainingSeconds: 0, phase: 'completed' as const };
+    if (s.phase !== 'running' || !s.targetEnd) return {};
+    const remaining = Math.max(0, Math.ceil((s.targetEnd - Date.now()) / 1000));
+    if (remaining <= 0) {
+      return { remainingSeconds: 0, targetEnd: null, phase: 'completed' as const, lastElapsedSeconds: s.totalSeconds };
     }
-    return { remainingSeconds: newRemaining };
+    return { remainingSeconds: remaining };
   }),
 
-  extend: (minutes) => set(s => ({
-    remainingSeconds: s.remainingSeconds + minutes * 60,
-    totalSeconds: s.totalSeconds + minutes * 60,
-  })),
+  extend: (minutes) => set(s => {
+    const added = minutes * 60;
+    return {
+      remainingSeconds: s.remainingSeconds + added,
+      totalSeconds: s.totalSeconds + added,
+      targetEnd: s.targetEnd ? s.targetEnd + minutes * 60000 : null,
+    };
+  }),
 
-  shorten: (minutes) => set(s => ({
-    remainingSeconds: Math.max(60, s.remainingSeconds - minutes * 60),
-    totalSeconds: Math.max(60, s.totalSeconds - minutes * 60),
-  })),
+  shorten: (minutes) => set(s => {
+    const removed = minutes * 60;
+    const newRemaining = Math.max(60, s.remainingSeconds - removed);
+    const actualRemoved = s.remainingSeconds - newRemaining;
+    return {
+      remainingSeconds: newRemaining,
+      totalSeconds: Math.max(60, s.totalSeconds - removed),
+      targetEnd: s.targetEnd ? s.targetEnd - actualRemoved * 1000 : null,
+    };
+  }),
 
-  complete: () => set({ phase: 'completed', remainingSeconds: 0 }),
+  complete: () => set(s => ({
+    phase: 'completed',
+    remainingSeconds: 0,
+    targetEnd: null,
+    lastElapsedSeconds: s.totalSeconds - s.remainingSeconds,
+  })),
 
   reset: () => set(initialState),
 }));

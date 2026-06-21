@@ -59,7 +59,7 @@ export function ReviewQueue() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="flex items-center gap-3 p-3 rounded-lg border hover:shadow-sm transition-shadow"
+                className="flex items-center gap-3 p-3 rounded-xl border bg-card transition-all duration-150 hover:bg-muted/20 active:scale-[0.98]"
               >
                 <div
                   className="w-2.5 h-2.5 rounded-full shrink-0"

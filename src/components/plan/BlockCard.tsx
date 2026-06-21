@@ -2,7 +2,10 @@ import { motion } from 'motion/react';
 import { cn } from '@/utils/cn';
 import type { Block } from '@/types';
 import { Button, Badge } from '@/components/ui';
-import { Play, CheckCircle2, Clock, SkipForward } from 'lucide-react';
+import { StartButton } from '@/components/ui/StartButton';
+import { CheckCircle2, Clock, SkipForward } from 'lucide-react';
+import { useRef, useCallback } from 'react';
+import gsap from 'gsap';
 
 const typeConfig: Record<string, { label: string; color: string; bg: string }> = {
   new_learning: { label: '新学', color: 'text-brand-600', bg: 'bg-brand-50 border-brand-200 dark:bg-brand-950 dark:border-brand-800' },
@@ -22,15 +25,43 @@ export function BlockCard({ block, onStart, onComplete, onSkip }: Props) {
   const config = typeConfig[block.type] ?? typeConfig.new_learning;
   const isDone = block.status === 'completed';
   const isSkipped = block.status === 'skipped';
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseEnter = useCallback(() => {
+    const el = cardRef.current;
+    if (!el || isDone || isSkipped) return;
+    gsap.to(el, {
+      y: -3,
+      boxShadow: '0 8px 30px rgba(0,0,0,0.07)',
+      duration: 0.3,
+      ease: 'power2.out',
+      force3D: false,
+    });
+  }, [isDone, isSkipped]);
+
+  const handleMouseLeave = useCallback(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    gsap.to(el, {
+      y: 0,
+      boxShadow: '0 0 0 rgba(0,0,0,0)',
+      duration: 0.35,
+      ease: 'power2.out',
+      force3D: false,
+    });
+  }, []);
 
   return (
     <motion.div
+      ref={cardRef}
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -20 }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className={cn(
-        'flex items-center gap-3 px-4 py-3 rounded-xl border transition-all',
+        'flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors',
         config.bg,
         isDone && 'opacity-50',
         isSkipped && 'opacity-40 line-through'
@@ -69,13 +100,12 @@ export function BlockCard({ block, onStart, onComplete, onSkip }: Props) {
             >
               <SkipForward size={14} />
             </Button>
-            <Button
+            <StartButton
               size="sm"
               onClick={() => onStart(block)}
             >
-              <Play size={14} />
               开始
-            </Button>
+            </StartButton>
           </>
         )}
         {block.status === 'in_progress' && (

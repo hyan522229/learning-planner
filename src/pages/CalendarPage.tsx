@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@/components/ui';
+import { StartButton } from '@/components/ui/StartButton';
 import { usePersonaStore } from '@/stores/personaStore';
 import { useTimerStore } from '@/stores/timerStore';
 import { useBlockStore } from '@/stores/blockStore';
@@ -254,14 +255,13 @@ export default function CalendarPage() {
                               <span>{statusIcons[block.status]}</span>
                             </div>
                             {block.status === 'scheduled' && (
-                              <Button
+                              <StartButton
                                 size="sm"
-                                variant="ghost"
-                                className="mt-2 w-full gap-1 text-xs"
+                                variant="outline"
                                 onClick={() => handleStartBlock(block)}
                               >
-                                <Play size={12} /> 开始此块
-                              </Button>
+                                开始此块
+                              </StartButton>
                             )}
                           </motion.div>
                         );

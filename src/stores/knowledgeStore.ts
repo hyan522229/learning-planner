@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { db } from '@/db';
 import { generateId } from '@/utils/id';
-import { calculateReviewDates, advanceStage, handleError } from '@/engine/ebbinghaus';
+import { calculateReviewDates, advanceStage, handleError, repairKnowledgePoint } from '@/engine/ebbinghaus';
 import type { KnowledgePoint } from '@/types';
 
 interface ReviewResult {
@@ -12,13 +12,15 @@ interface ReviewResult {
 }
 
 interface KnowledgeState {
-  addKnowledgePoint: (data: { personaId: string; subjectId: string; name: string; studyDate: number }) => Promise<string>;
+  addKnowledgePoint: (data: { personaId: string; subjectId: string; name: string; studyDate: number; reviewDurationMinutes?: number; initialStage?: number }) => Promise<string>;
+  updateReviewDuration: (id: string, minutes: number) => Promise<void>;
   submitReview: (id: string, rating: number, allowSkip?: boolean) => Promise<ReviewResult>;
   requestSkip: (id: string) => Promise<ReviewResult>;
   getDueReviews: (personaId: string) => Promise<KnowledgePoint[]>;
   getAllKnowledgePoints: (personaId: string) => Promise<KnowledgePoint[]>;
   deleteKnowledgePoint: (id: string) => Promise<void>;
   shiftAllDates: (personaId: string, days: number) => Promise<void>;
+  repairAllKnowledgePoints: (personaId: string) => Promise<number>;
 }
 
 export const useKnowledgeStore = create<KnowledgeState>(() => ({
@@ -26,17 +28,19 @@ export const useKnowledgeStore = create<KnowledgeState>(() => ({
     const id = generateId();
     const now = Date.now();
     const reviewDates = calculateReviewDates(data.studyDate);
+    const stage = Math.min(data.initialStage ?? 0, 10);
     const point: KnowledgePoint = {
       ...data,
       id,
-      currentStage: 0,
-      nextReviewDate: reviewDates[0],
+      currentStage: stage,
+      nextReviewDate: stage >= 10 ? reviewDates[9] : reviewDates[stage],
       reviewDates,
-      consecutiveCorrect: 0,
+      reviewDurationMinutes: data.reviewDurationMinutes || 10,
+      consecutiveCorrect: stage,
       masteryRating: 0,
       errorCount: 0,
       errorAtStage: -1,
-      status: 'active',
+      status: stage >= 10 ? 'completed' : 'active',
       createdAt: now,
       updatedAt: now,
     };
@@ -98,6 +102,13 @@ export const useKnowledgeStore = create<KnowledgeState>(() => ({
     await db.knowledgePoints.delete(id);
   },
 
+  updateReviewDuration: async (id, minutes) => {
+    await db.knowledgePoints.update(id, {
+      reviewDurationMinutes: minutes,
+      updatedAt: Date.now(),
+    });
+  },
+
   shiftAllDates: async (personaId, days) => {
     const points = await db.knowledgePoints
       .where({ personaId, status: 'active' })
@@ -110,5 +121,24 @@ export const useKnowledgeStore = create<KnowledgeState>(() => ({
         updatedAt: Date.now(),
       });
     }
+  },
+
+  repairAllKnowledgePoints: async (personaId) => {
+    const points = await db.knowledgePoints
+      .where({ personaId })
+      .toArray();
+    let repairedCount = 0;
+    for (const p of points) {
+      const result = repairKnowledgePoint(p);
+      if (result.wasBroken || result.reviewDates.join(',') !== p.reviewDates.join(',') || result.nextReviewDate !== p.nextReviewDate) {
+        await db.knowledgePoints.update(p.id, {
+          reviewDates: result.reviewDates,
+          nextReviewDate: result.nextReviewDate,
+          updatedAt: Date.now(),
+        });
+        repairedCount++;
+      }
+    }
+    return repairedCount;
   },
 }));

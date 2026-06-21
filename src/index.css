@@ -6,135 +6,163 @@
   --color-brand-200: #bfdbfe;
   --color-brand-300: #93c5fd;
   --color-brand-400: #60a5fa;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-800: #1e40af;
-  --color-brand-900: #1e3a8a;
+  --color-brand-500: #0066cc;
+  --color-brand-600: #0071e3;
+  --color-brand-700: #0066cc;
+  --color-brand-800: #004499;
+  --color-brand-900: #003377;
+  --color-review: #f97316;
+  --color-review-light: #fff7ed;
+  --color-review-border: #fed7aa;
+  --color-new: #0066cc;
+  --color-new-light: #eff6ff;
+  --color-new-border: #bfdbfe;
   --color-success-50: #f0fdf4;
-  --color-success-500: #22c55e;
-  --color-success-600: #16a34a;
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
   --color-warning-50: #fffbeb;
   --color-warning-500: #f59e0b;
   --color-danger-50: #fef2f2;
   --color-danger-500: #ef4444;
+  --color-destructive: #ef4444;
+  --font-sans: "SF Pro Text", "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", monospace;
+  --font-serif: "Source Serif 4", serif;
+  --radius: 1.125rem;
 }
 
 :root {
-  --background: 220 20% 97%;
-  --foreground: 224 60% 6%;
+  --background: 0 0% 100%;
+  --foreground: 0 0% 12%;
   --card: 0 0% 100%;
-  --card-foreground: 224 60% 6%;
+  --card-foreground: 0 0% 12%;
   --popover: 0 0% 100%;
-  --popover-foreground: 224 60% 6%;
-  --primary: 221 83% 53%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 220 15% 94%;
-  --secondary-foreground: 224 50% 15%;
-  --muted: 220 15% 93%;
-  --muted-foreground: 220 10% 45%;
-  --accent: 220 15% 93%;
-  --accent-foreground: 224 50% 15%;
-  --destructive: 0 75% 52%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 220 15% 88%;
-  --input: 220 15% 88%;
-  --ring: 221 83% 53%;
-  --radius: 0.75rem;
+  --popover-foreground: 0 0% 12%;
+  --primary: 210 100% 40%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 5% 96%;
+  --secondary-foreground: 0 0% 12%;
+  --muted: 240 5% 96%;
+  --muted-foreground: 0 0% 48%;
+  --accent: 240 5% 96%;
+  --accent-foreground: 0 0% 12%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 88%;
+  --input: 0 0% 88%;
+  --ring: 210 100% 44%;
+  --sidebar: 0 0% 96%;
+  --sidebar-foreground: 0 0% 12%;
+  --sidebar-primary: 210 100% 40%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 240 5% 96%;
+  --sidebar-accent-foreground: 0 0% 12%;
+  --sidebar-border: 0 0% 94%;
+  --sidebar-ring: 210 100% 44%;
+  --chart-1: 210 100% 40%;
+  --chart-2: 217 91% 60%;
+  --chart-3: 213 94% 68%;
+  --chart-4: 224 76% 48%;
+  --chart-5: 226 71% 40%;
 }
 
 .dark {
-  --background: 228 30% 4%;
-  --foreground: 210 25% 94%;
-  --card: 228 20% 9%;
-  --card-foreground: 210 25% 94%;
-  --popover: 228 20% 12%;
-  --popover-foreground: 210 25% 94%;
-  --primary: 217 91% 64%;
-  --primary-foreground: 225 30% 8%;
-  --secondary: 228 15% 15%;
-  --secondary-foreground: 210 25% 94%;
-  --muted: 228 15% 16%;
-  --muted-foreground: 215 12% 58%;
-  --accent: 228 15% 18%;
-  --accent-foreground: 210 25% 94%;
-  --destructive: 0 63% 42%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 228 15% 22%;
-  --input: 228 15% 22%;
-  --ring: 217 91% 64%;
+  --background: 0 0% 7%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 9%;
+  --card-foreground: 0 0% 100%;
+  --popover: 0 0% 9%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 212 100% 48%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 15%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 0 0% 15%;
+  --muted-foreground: 0 0% 64%;
+  --accent: 0 0% 15%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 20%;
+  --input: 0 0% 20%;
+  --ring: 212 100% 48%;
+  --sidebar: 0 0% 7%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-primary: 212 100% 48%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 0 0% 15%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 0 0% 20%;
+  --sidebar-ring: 212 100% 48%;
+  --chart-1: 212 100% 48%;
+  --chart-2: 217 91% 60%;
+  --chart-3: 213 94% 68%;
+  --chart-4: 224 76% 48%;
+  --chart-5: 226 71% 40%;
 }
 
-* {
-  border-color: hsl(var(--border));
-}
+* { border-color: hsl(var(--border)); }
 
 body {
   margin: 0;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.47;
+  letter-spacing: -0.022em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-#root {
-  min-height: 100vh;
+#root { min-height: 100vh; min-height: 100dvh; }
+
+/* Apple-style active press: scale(0.95) */
+@keyframes apple-press {
+  0% { transform: scale(1); }
+  100% { transform: scale(0.95); }
 }
 
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-.animate-shimmer {
-  animation: shimmer 2s infinite;
-}
-
-@keyframes progress-pulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
-
+/* Progress bar charge animation */
 @keyframes progress-charge {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
 
+.animate-progress-charge {
+  background-size: 200% 100%;
+  animation: progress-charge 2s linear infinite;
+}
+
+/* Completion pulse */
+@keyframes complete-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.animate-complete-pulse {
+  animation: complete-pulse 0.6s ease-in-out;
+}
+
+/* Apple heading overrides */
+h1, h2, h3, h4 {
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+  font-weight: 600;
+}
+
+h1 { font-size: 40px; line-height: 1.1; letter-spacing: -0.003em; }
+h2 { font-size: 28px; line-height: 1.14; letter-spacing: 0.007em; }
+h3 { font-size: 21px; line-height: 1.19; letter-spacing: 0.011em; }
+
 @media print {
-  @page {
-    size: A4 portrait;
-    margin: 12mm 10mm 10mm 10mm;
-  }
-
-  html, body {
-    font-size: 10px !important;
-    color: #1a1a1a !important;
-    background: white !important;
-  }
-
-  /* Hide all chrome */
-  aside, header, nav, .no-print,
-  [class*="sidebar"], [class*="Sidebar"],
-  [class*="topbar"], [class*="TopBar"] {
+  @page { size: A4 portrait; margin: 12mm 10mm 10mm 10mm; }
+  html, body { font-size: 10px !important; color: #1a1a1a !important; background: white !important; }
+  aside, header, nav, .no-print, [class*="sidebar"], [class*="Sidebar"],
+  [class*="tabbar"], [class*="TabBar"], [class*="topbar"], [class*="TopBar"] {
     display: none !important;
   }
-
-  /* Full-width main content */
-  .flex.h-screen > .flex-1 {
-    margin: 0 !important;
-    padding: 0 !important;
-    max-width: 100% !important;
-  }
-
-  main {
-    padding: 0 !important;
-    overflow: visible !important;
-  }
-
-  /* Remove animations and shadows */
-  *, *::before, *::after {
-    animation: none !important;
-    transition: none !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-  }
+  .flex.h-screen > .flex-1 { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
+  main { padding: 0 !important; overflow: visible !important; }
+  *, *::before, *::after { animation: none !important; transition: none !important; box-shadow: none !important; }
 }

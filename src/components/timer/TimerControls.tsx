@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui';
+import { StartButton } from '@/components/ui/StartButton';
 import { Play, Pause, Plus, Minus, CheckCircle2, RotateCcw, Eye } from 'lucide-react';
 
 interface Props {
@@ -23,13 +24,12 @@ export function TimerControls({
 
   return (
     <div className="flex flex-col items-center gap-4">
-      {/* Main play/pause/complete */}
+      {/* Main play/pause/complete/undo */}
       <div className="flex items-center gap-3">
         {isIdle && (
-          <Button size="lg" onClick={onStart} className="gap-2 px-8">
-            <Play size={20} />
+          <StartButton size="lg" variant="outline" onClick={onStart}>
             开始
-          </Button>
+          </StartButton>
         )}
         {isRunning && (
           <Button size="lg" variant="outline" onClick={onPause} className="gap-2 px-8">

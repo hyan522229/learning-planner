@@ -9,7 +9,7 @@ interface PersonaState {
   personas: Persona[];
   setActivePersona: (id: string) => void;
   loadPersonas: () => Promise<void>;
-  createPersona: (name: string, avatarEmoji: string, color: string) => Promise<string>;
+  createPersona: (name: string, avatarEmoji: string, color: string, avatarImage?: string) => Promise<string>;
   deletePersona: (id: string) => Promise<void>;
 }
 
@@ -29,10 +29,10 @@ export const usePersonaStore = create<PersonaState>((set, get) => ({
     }
   },
 
-  createPersona: async (name, avatarEmoji, color) => {
+  createPersona: async (name, avatarEmoji, color, avatarImage?) => {
     const id = generateId();
     const now = Date.now();
-    const persona: Persona = { id, name, avatarEmoji, color, createdAt: now };
+    const persona: Persona = { id, name, avatarEmoji, avatarImage, color, createdAt: now };
     await db.personas.add(persona);
 
     const settings: AppSettings = {
@@ -42,7 +42,7 @@ export const usePersonaStore = create<PersonaState>((set, get) => ({
       mandatoryThresholdPercent: DEFAULT_MANDATORY_THRESHOLD,
       skipDaysPerMonth: DEFAULT_SKIP_DAYS_PER_MONTH, skipDaysUsedThisMonth: 0,
       lastSkipResetMonth: now, recoveryDayEnabled: true, autoPromptNewProject: true,
-      soundEnabled: true, theme: 'system',
+      soundEnabled: true, taskCompleteMusicEnabled: true, restAlarmEnabled: true, theme: 'system',
       newKnowledgePerDayLimit: 3, autoSkipEnabled: false,
     };
     await db.settings.add(settings);

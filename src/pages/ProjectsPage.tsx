@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button, Input, Label, Progress, Badge } from '@/components/ui';
 import { Card, CardContent } from '@/components/ui';
+import { PillButton } from '@/components/ui/PillButton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
 import { Plus, Trash2, Archive, ChevronUp, ChevronDown, History, Trophy, BookOpen, Sparkles } from 'lucide-react';
 import { usePersonaStore } from '@/stores/personaStore';
 import { useSubjectStore } from '@/stores/subjectStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useCollectionStore } from '@/stores/collectionStore';
 import { useKnowledgeStore } from '@/stores/knowledgeStore';
 import { db } from '@/db';
 import type { MeasureType, Priority, ProgressLog, ProjectCategory } from '@/types';
@@ -21,9 +23,9 @@ const measureLabels: Record<MeasureType, string> = {
 };
 
 const categoryLabels: Record<ProjectCategory, { label: string; icon: string; color: string; bgClass: string }> = {
-  study: { label: '学习', icon: '📚', color: 'text-blue-600 dark:text-blue-400', bgClass: 'bg-blue-50 border-blue-200 dark:bg-blue-950/60 dark:border-blue-800/60' },
-  work: { label: '工作', icon: '💼', color: 'text-amber-600 dark:text-amber-400', bgClass: 'bg-amber-50 border-amber-200 dark:bg-amber-950/60 dark:border-amber-800/60' },
-  exercise: { label: '运动', icon: '🏃', color: 'text-green-600 dark:text-green-400', bgClass: 'bg-green-50 border-green-200 dark:bg-green-950/60 dark:border-green-800/60' },
+  study: { label: '学习', icon: '📘', color: 'text-blue-600 dark:text-blue-400', bgClass: 'bg-blue-50 border-blue-200 dark:bg-blue-950/60 dark:border-blue-800/60' },
+  work: { label: '工作', icon: '💻', color: 'text-amber-600 dark:text-amber-400', bgClass: 'bg-amber-50 border-amber-200 dark:bg-amber-950/60 dark:border-amber-800/60' },
+  exercise: { label: '运动', icon: '🏋️', color: 'text-green-600 dark:text-green-400', bgClass: 'bg-green-50 border-green-200 dark:bg-green-950/60 dark:border-green-800/60' },
 };
 
 const priorityColors: Record<number, string> = {
@@ -36,6 +38,7 @@ const priorityColors: Record<number, string> = {
 
 export default function ProjectsPage() {
   const [showForm, setShowForm] = useState(false);
+  const composingRef = useRef(false);
   const [name, setName] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [measureType, setMeasureType] = useState<MeasureType>('pages');
@@ -45,6 +48,7 @@ export default function ProjectsPage() {
   const [initialProgress, setInitialProgress] = useState('0');
   const [initialSpeed, setInitialSpeed] = useState('');
   const [createReview, setCreateReview] = useState(false);
+  const [dailyBlockLimit, setDailyBlockLimit] = useState('-1');
 
   const [updateProjectId, setUpdateProjectId] = useState<string | null>(null);
   const [updateAmount, setUpdateAmount] = useState('0');
@@ -89,20 +93,12 @@ export default function ProjectsPage() {
       completed: Number(initialProgress) || 0,
       priority,
       initialSpeed: initialSpeed ? Number(initialSpeed) : undefined,
+      createReviewOnComplete: createReview && !!subjectId,
+      dailyBlockLimit: Number(dailyBlockLimit),
     });
 
-    // If "create review" is checked and a subject is selected, create a knowledge point
-    if (createReview && subjectId) {
-      await addKnowledgePoint({
-        personaId: activePersonaId,
-        subjectId,
-        name: `[项目] ${name.trim()}`,
-        studyDate: Date.now(),
-      });
-    }
-
     setName(''); setMeasureType('pages'); setCategory('study'); setTotal('100'); setPriority(3);
-    setSubjectId(''); setInitialProgress('0'); setInitialSpeed(''); setCreateReview(false);
+    setSubjectId(''); setInitialProgress('0'); setInitialSpeed(''); setCreateReview(false); setDailyBlockLimit('-1');
     setShowForm(false);
   };
 
@@ -112,7 +108,7 @@ export default function ProjectsPage() {
     await addKnowledgePoint({
       personaId: activePersonaId,
       subjectId: sid,
-      name: `[项目] ${projectName}`,
+      name: projectName,
       studyDate: Date.now(),
     });
   };
@@ -150,7 +146,7 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-bold">学习项目</h1>
           <p className="text-sm text-muted-foreground mt-1">{activeProjects.length} 个项目进行中</p>
         </div>
-        <Button onClick={() => setShowForm(true)} size="sm"><Plus size={16} /> 添加项目</Button>
+        <PillButton onClick={() => setShowForm(true)} ><Plus size={15} /> 添加项目</PillButton>
       </div>
 
       {/* Active projects */}
@@ -222,7 +218,7 @@ export default function ProjectsPage() {
 
       {activeProjects.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
-          <div className="text-4xl mb-3">📂</div>
+          <div className="text-4xl mb-3">📋</div>
           <p className="text-sm">还没有学习项目，点击上方按钮添加</p>
         </div>
       )}
@@ -345,7 +341,11 @@ export default function ProjectsPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>项目名称</Label>
-              <Input placeholder="例如：数学练习册" value={name} onChange={e => setName(e.target.value)} autoFocus />
+              <Input placeholder="例如：数学练习册" key={String(showForm)} defaultValue={name}
+                onChange={e => { if (!composingRef.current) setName(e.target.value); }}
+                onCompositionStart={() => { composingRef.current = true; }}
+                onCompositionEnd={e => { composingRef.current = false; setName((e.target as HTMLInputElement).value); }}
+                autoFocus />
             </div>
             <div className="space-y-2">
               <Label>项目类型</Label>
@@ -438,6 +438,18 @@ export default function ProjectsPage() {
                 <p className="text-[10px] text-muted-foreground">可选，帮助计划排期</p>
               </div>
             </div>
+            <div className="space-y-2">
+              <Label>建议每日学习块</Label>
+              <Input
+                type="number"
+                value={dailyBlockLimit}
+                onChange={e => setDailyBlockLimit(e.target.value)}
+                min="-1"
+                max="20"
+                placeholder="-1 = 无建议"
+              />
+              <p className="text-[10px] text-muted-foreground">仅供参考，实际排块不受此限制。0=暂不自动安排</p>
+            </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setShowForm(false)}>取消</Button>
               <Button onClick={handleAdd}>添加</Button>
@@ -504,6 +516,173 @@ export default function ProjectsPage() {
                 ))}
               </AnimatePresence>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Project Collections ── */}
+      <CollectionsSection personaId={activePersonaId ?? undefined} projects={activeProjects} />
+    </div>
+  );
+}
+
+// ─── Collections Section ───
+
+function CollectionsSection({ personaId, projects }: { personaId?: string; projects: any[] }) {
+  const [showForm, setShowForm] = useState(false);
+  const [colName, setColName] = useState('');
+  const [colMode, setColMode] = useState<'single' | 'dual'>('single');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const composingRef = useRef(false);
+  const addCol = useCollectionStore(s => s.addCollection);
+  const deleteCol = useCollectionStore(s => s.deleteCollection);
+  const updateCol = useCollectionStore(s => s.updateCollection);
+
+  const collections = useLiveQuery(async () => {
+    if (!personaId) return [];
+    return db.projectCollections.where({ personaId }).toArray();
+  }, [personaId]) ?? [];
+
+  const handleAdd = async () => {
+    if (!colName.trim() || !personaId || selectedIds.length === 0) return;
+    await addCol({ personaId, name: colName.trim(), projectIds: selectedIds, mode: colMode });
+    setColName(''); setSelectedIds([]); setColMode('single'); setShowForm(false);
+  };
+
+  const toggleProject = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const projectMap = new Map(projects.map(p => [p.id, p]));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold">项目合集</h2>
+          <p className="text-sm text-muted-foreground">{collections.length} 个合集</p>
+        </div>
+        <PillButton onClick={() => setShowForm(true)} ><Plus size={15} /> 添加合集</PillButton>
+      </div>
+
+      <div className="space-y-3">
+        {collections.map(col => {
+          const colProjects = col.projectIds.map(id => projectMap.get(id)).filter(Boolean);
+          const completed = colProjects.filter((p: any) => p.status === 'completed').length;
+          const pct = colProjects.length > 0 ? Math.round((completed / colProjects.length) * 100) : 0;
+
+          return (
+            <Card key={col.id}>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">{col.name}</span>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {col.mode === 'single' ? '单项目' : '双项目'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => updateCol(col.id, { mode: col.mode === 'single' ? 'dual' : 'single' })}
+                      className="px-2 py-0.5 text-xs rounded border hover:bg-muted transition-colors"
+                    >
+                      切换为{col.mode === 'single' ? '双' : '单'}项目
+                    </button>
+                    <button onClick={() => deleteCol(col.id)} className="p-1 text-muted-foreground hover:text-destructive">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+                <Progress value={pct} className="h-2 mb-2" />
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{completed}/{colProjects.length} 完成</span>
+                  <span>·</span>
+                  <span>{pct}%</span>
+                </div>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {colProjects.map((p: any, i: number) => (
+                    <span
+                      key={p.id}
+                      className={cn(
+                        'text-[11px] px-2 py-0.5 rounded-full',
+                        p.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                        i === 0 && col.mode === 'single' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                        (i === 0 || i === 1) && col.mode === 'dual' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                        'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      {p.name}
+                      {p.status === 'completed' && ' ✓'}
+                    </span>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>新建项目合集</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>合集名称</Label>
+              <Input
+                key={String(showForm)}
+                defaultValue=""
+                onChange={e => { if (!composingRef.current) setColName(e.target.value); }}
+                onCompositionStart={() => { composingRef.current = true; }}
+                onCompositionEnd={e => { composingRef.current = false; setColName((e.target as HTMLInputElement).value); }}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>项目模式</Label>
+              <div className="flex gap-2">
+                {(['single', 'dual'] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setColMode(m)}
+                    className={cn(
+                      'flex-1 py-2 rounded-lg border text-sm transition-all',
+                      colMode === m
+                        ? 'bg-brand-50 border-brand-300 text-brand-700 dark:bg-brand-950 dark:border-brand-700 dark:text-brand-300'
+                        : 'border-input text-muted-foreground hover:bg-muted',
+                    )}
+                  >
+                    {m === 'single' ? '单项目进行' : '双项目同时'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>选择项目（按顺序）</Label>
+              <div className="max-h-48 overflow-y-auto space-y-1 border rounded-lg p-2">
+                {projects.map(p => (
+                  <label key={p.id} className="flex items-center gap-2 text-sm py-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(p.id)}
+                      onChange={() => toggleProject(p.id)}
+                      className="rounded"
+                    />
+                    {p.name}
+                    {p.status === 'completed' && <span className="text-green-500 text-xs">✓</span>}
+                  </label>
+                ))}
+                {projects.length === 0 && <p className="text-xs text-muted-foreground py-2">暂无可选项目</p>}
+              </div>
+            </div>
+            {selectedIds.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                已选 {selectedIds.length} 个项目，按选择顺序排列
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowForm(false)}>取消</Button>
+              <Button onClick={handleAdd} disabled={!colName.trim() || selectedIds.length === 0}>创建合集</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

@@ -15,3 +15,21 @@ export {
   DialogDescription,
 } from './Dialog';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';
+export { Separator } from './Separator';
+export {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuGroup,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuShortcut,
+} from './DropdownMenu';

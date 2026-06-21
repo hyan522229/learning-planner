@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { db } from '@/db';
 import { generateId } from '@/utils/id';
 import { calculateEWMA, recordSpeed, calculateProgress } from '@/engine/progress-calc';
+import { useKnowledgeStore } from './knowledgeStore';
 import type { Project, MeasureType, Priority, ProgressLog, SpeedRecord, ProjectCategory } from '@/types';
 
 interface ProjectState {
@@ -9,7 +10,7 @@ interface ProjectState {
     personaId: string; name: string; measureType: MeasureType;
     category: ProjectCategory;
     total: number; completed: number; priority: Priority; subjectId?: string;
-    initialSpeed?: number;
+    initialSpeed?: number; createReviewOnComplete?: boolean; dailyBlockLimit?: number;
   }) => Promise<string>;
   updateProgress: (id: string, amountCompleted: number, durationMinutes: number) => Promise<number>;
   getProgressLogs: (projectId: string) => Promise<ProgressLog[]>;
@@ -17,6 +18,7 @@ interface ProjectState {
   getAllProjects: (personaId: string) => Promise<Project[]>;
   deleteProject: (id: string) => Promise<void>;
   updatePriority: (id: string, priority: Priority) => Promise<void>;
+  updateDailyBlockLimit: (id: string, limit: number) => Promise<void>;
   archiveProject: (id: string) => Promise<void>;
 }
 
@@ -40,6 +42,8 @@ export const useProjectStore = create<ProjectState>(() => ({
       speedRecords,
       currentSpeedEWMA: data.initialSpeed || 0,
       status: 'active',
+      createReviewOnComplete: data.createReviewOnComplete ?? false,
+      dailyBlockLimit: data.dailyBlockLimit ?? -1,
       createdAt: now,
       completedAt: null,
     };
@@ -120,6 +124,18 @@ export const useProjectStore = create<ProjectState>(() => ({
       completedAt: progress >= 100 ? Date.now() : null,
     });
 
+    // Create review knowledge point on completion
+    if (progress >= 100 && project.createReviewOnComplete && project.subjectId) {
+      try {
+        await useKnowledgeStore.getState().addKnowledgePoint({
+          personaId: project.personaId,
+          subjectId: project.subjectId,
+          name: project.name,
+          studyDate: Date.now(),
+        });
+      } catch { /* ignore */ }
+    }
+
     return progress;
   },
 
@@ -186,6 +202,10 @@ export const useProjectStore = create<ProjectState>(() => ({
 
   updatePriority: async (id, priority) => {
     await db.projects.update(id, { priority });
+  },
+
+  updateDailyBlockLimit: async (id, limit) => {
+    await db.projects.update(id, { dailyBlockLimit: limit });
   },
 
   archiveProject: async (id) => {
