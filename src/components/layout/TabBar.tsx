@@ -43,16 +43,37 @@ function SettingsIcon({ active }: { active: boolean }) {
   );
 }
 
+function TimerIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+      stroke={active ? '#6366f1' : '#9ca3af'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
+function KnowledgeIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+      stroke={active ? '#6366f1' : '#9ca3af'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+    </svg>
+  );
+}
+
 const tabs = [
   { to: '/plan', icon: CalendarIcon, label: '今日规划' },
-  { to: '/projects', icon: FolderIcon, label: '项目' },
-  { to: '/calendar', icon: ChartIcon, label: '日程' },
+  { to: '/timer', icon: TimerIcon, label: '计时器' },
+  { to: '/projects', icon: KnowledgeIcon, label: '项目' },
+  { to: '/analytics', icon: ChartIcon, label: '数据分析' },
   { to: '/settings', icon: SettingsIcon, label: '设置' },
 ];
 
 export function TabBar() {
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-lg border-t border-gray-100">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-gray-200">
       <div className="flex justify-around items-center h-16 max-w-lg mx-auto">
         {tabs.map(({ to, icon: Icon, label }) => (
           <NavLink
@@ -60,8 +81,8 @@ export function TabBar() {
             to={to}
             end={to === '/'}
             className={({ isActive }) => cn(
-              'flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-lg transition-colors min-w-[64px]',
-              isActive ? 'text-indigo-500' : 'text-gray-400'
+              'flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-lg transition-colors min-w-[56px]',
+              isActive ? 'text-primary' : 'text-muted-foreground'
             )}
           >
             {({ isActive }) => (

@@ -85,7 +85,7 @@ export function AppShell() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="lg:hidden fixed inset-0 z-40 bg-black/50"
+              className="lg:hidden fixed inset-0 z-40 bg-black/60"
               onClick={handleBackdropClick}
             />
             <motion.div
@@ -103,7 +103,7 @@ export function AppShell() {
 
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar />
-        <main className="flex-1 overflow-y-auto pb-20 lg:pb-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden pb-20 lg:pb-0">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -111,7 +111,7 @@ export function AppShell() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -12, scale: 0.98 }}
               transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-              className="p-4 lg:p-6"
+              className="p-3 lg:p-6 max-w-full"
             >
               <Outlet />
             </motion.div>
