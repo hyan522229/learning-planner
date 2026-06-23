@@ -46,8 +46,6 @@ export function TimerWidget() {
       let blockName = '';
       if (currentBlockId) {
         try {
-          const block = await blockStore.getState().getBlock?.(currentBlockId);
-          // Use dexie directly
           const { db } = await import('@/db');
           const b = await db.blocks.get(currentBlockId);
           if (b) blockName = b.name;
