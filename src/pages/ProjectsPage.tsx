@@ -5,7 +5,7 @@ import { Button, Input, Label, Progress, Badge } from '@/components/ui';
 import { Card, CardContent } from '@/components/ui';
 import { PillButton } from '@/components/ui/PillButton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
-import { Plus, Trash2, Archive, ChevronUp, ChevronDown, History, Trophy, BookOpen, Sparkles, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, Archive, ChevronUp, ChevronDown, History, Trophy, BookOpen, Sparkles, AlertTriangle, ArrowRight, Pencil, Check, X, Brain } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePersonaStore } from '@/stores/personaStore';
 import { useSubjectStore } from '@/stores/subjectStore';
@@ -55,6 +55,8 @@ export default function ProjectsPage() {
   const [updateAmount, setUpdateAmount] = useState('0');
   const [updateMinutes, setUpdateMinutes] = useState('45');
   const [logProjectId, setLogProjectId] = useState<string | null>(null);
+  const [renameProjectId, setRenameProjectId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const activePersonaId = usePersonaStore(s => s.activePersonaId);
   const subjects = useSubjectStore(s => s.subjects);
@@ -101,6 +103,25 @@ export default function ProjectsPage() {
     setName(''); setMeasureType('pages'); setCategory('study'); setTotal('100'); setPriority(3);
     setSubjectId(''); setInitialProgress('0'); setInitialSpeed(''); setCreateReview(false); setDailyBlockLimit('-1');
     setShowForm(false);
+  };
+
+  const handleAddToReviewEngine = async (project: any) => {
+    if (!activePersonaId) return;
+    const sid = project.subjectId || subjects[0]?.id;
+    if (!sid) return;
+    await addKnowledgePoint({
+      personaId: activePersonaId,
+      subjectId: sid,
+      name: project.name,
+      studyDate: Date.now(),
+    });
+    alert('已加入复习引擎');
+  };
+
+  const handleRenameProject = async (id: string) => {
+    if (!renameValue.trim()) { setRenameProjectId(null); return; }
+    await db.projects.update(id, { name: renameValue.trim() });
+    setRenameProjectId(null);
   };
 
   const handleCreateReview = async (projectId: string, projectName: string, projectSubjectId?: string) => {
@@ -178,7 +199,30 @@ export default function ProjectsPage() {
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium">{project.name}</span>
+                          {renameProjectId === project.id ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                className="h-7 w-40 text-sm"
+                                defaultValue={project.name}
+                                onChange={e => { if (!composingRef.current) setRenameValue(e.target.value); }}
+                                onCompositionStart={() => { composingRef.current = true; }}
+                                onCompositionEnd={e => { composingRef.current = false; setRenameValue((e.target as HTMLInputElement).value); }}
+                                onKeyDown={e => { if (e.key === 'Enter' && !composingRef.current) handleRenameProject(project.id); }}
+                                autoFocus
+                              />
+                              <button onClick={() => handleRenameProject(project.id)} className="p-1 text-green-600 hover:bg-green-50 rounded"><Check size={14} /></button>
+                              <button onClick={() => setRenameProjectId(null)} className="p-1 text-muted-foreground hover:bg-muted rounded"><X size={14} /></button>
+                            </div>
+                          ) : (
+                            <span className="font-medium">{project.name}</span>
+                          )}
+                          <button
+                            onClick={() => { setRenameProjectId(project.id); setRenameValue(project.name); }}
+                            className="p-0.5 text-muted-foreground hover:text-foreground"
+                            title="改名"
+                          >
+                            <Pencil size={12} />
+                          </button>
                           {project.category && categoryLabels[project.category] && (
                             <Badge variant="outline" className="text-[10px] gap-1">
                               <span>{categoryLabels[project.category].icon}</span>
@@ -212,6 +256,9 @@ export default function ProjectsPage() {
                         <Button size="sm" variant="ghost"
                           onClick={() => { setUpdateProjectId(project.id); setUpdateAmount('0'); }}>
                           + 进度
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => handleAddToReviewEngine(project)} title="加入复习引擎">
+                          <Brain size={14} />
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => handleShowLogs(project.id)} title="进度记录">
                           <History size={14} />

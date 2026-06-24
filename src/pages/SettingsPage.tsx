@@ -490,19 +490,10 @@ function AudioSection({
   onAdd: (file: File) => void;
   onRemove: (id: string) => void;
 }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+
   const handlePick = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'audio/*';
-    input.multiple = true;
-    input.onchange = () => {
-      const picked = input.files;
-      if (!picked) return;
-      for (const file of Array.from(picked)) {
-        onAdd(file);
-      }
-    };
-    input.click();
+    fileRef.current?.click();
   };
 
   return (
@@ -515,6 +506,20 @@ function AudioSection({
         <p className="text-xs text-muted-foreground">{description}</p>
       </CardHeader>
       <CardContent className="space-y-2">
+        <input
+          ref={fileRef}
+          type="file"
+          accept="audio/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            const picked = e.target.files;
+            if (!picked) return;
+            for (const file of Array.from(picked)) {
+              onAdd(file);
+            }
+          }}
+        />
         {files.length === 0 ? (
           <div className="text-center py-4 text-muted-foreground text-sm">
             <VolumeX size={24} className="mx-auto mb-2 opacity-30" />
