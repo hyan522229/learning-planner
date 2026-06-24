@@ -93,7 +93,7 @@ export async function seedDatabase() {
   await db.personas.add({
     id: personaId,
     name: '我',
-    avatarEmoji: '🧑',
+    avatarEmoji: '➕',
     color: '#6366f1',
     createdAt: now,
   });

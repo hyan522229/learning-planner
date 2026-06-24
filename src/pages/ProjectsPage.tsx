@@ -5,7 +5,8 @@ import { Button, Input, Label, Progress, Badge } from '@/components/ui';
 import { Card, CardContent } from '@/components/ui';
 import { PillButton } from '@/components/ui/PillButton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
-import { Plus, Trash2, Archive, ChevronUp, ChevronDown, History, Trophy, BookOpen, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Archive, ChevronUp, ChevronDown, History, Trophy, BookOpen, Sparkles, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { usePersonaStore } from '@/stores/personaStore';
 import { useSubjectStore } from '@/stores/subjectStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -147,6 +148,20 @@ export default function ProjectsPage() {
           <p className="text-sm text-muted-foreground mt-1">{activeProjects.length} 个项目进行中</p>
         </div>
         <PillButton onClick={() => setShowForm(true)} ><Plus size={15} /> 添加项目</PillButton>
+      </div>
+
+      {/* Quick links to knowledge & errors (mobile) */}
+      <div className="lg:hidden grid grid-cols-2 gap-2">
+        <Link to="/knowledge" className="flex items-center gap-2 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors active:scale-[0.98]">
+          <BookOpen size={18} className="text-blue-500" />
+          <span className="text-sm font-medium">知识点</span>
+          <ArrowRight size={14} className="ml-auto text-muted-foreground" />
+        </Link>
+        <Link to="/errors" className="flex items-center gap-2 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors active:scale-[0.98]">
+          <AlertTriangle size={18} className="text-orange-500" />
+          <span className="text-sm font-medium">错题</span>
+          <ArrowRight size={14} className="ml-auto text-muted-foreground" />
+        </Link>
       </div>
 
       {/* Active projects */}

@@ -66,7 +66,7 @@ export function TopBar() {
                   className="flex items-center justify-center w-7 h-7 rounded-full text-base shrink-0"
                   style={{ backgroundColor: activePersona?.color || '#6366f1' }}
                 >
-                  {activePersona?.avatarEmoji || '🧑'}
+                  {activePersona?.avatarEmoji || '➕'}
                 </span>
               )}
               <span className="text-sm font-medium max-w-[80px] truncate">

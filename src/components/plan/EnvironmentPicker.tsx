@@ -16,18 +16,33 @@ export function EnvironmentPicker({ onSelect }: Props) {
     onSelect?.(id);
   };
 
+  const activeName = environments.find(e => e.id === activeId)?.name || '';
+
   return (
-    <div className="flex items-center gap-1.5 bg-muted rounded-lg p-0.5">
-      <Globe size={14} className="ml-2 text-muted-foreground" />
-      {environments.map(env => (
-        <PillButton
-          key={env.id}
-          active={env.id === activeId}
-          onClick={() => handleSelect(env.id)}
-        >
-          {env.name}
-        </PillButton>
-      ))}
-    </div>
+    <>
+      {/* Desktop: pill buttons */}
+      <div className="hidden sm:flex items-center gap-1.5 bg-muted rounded-lg p-0.5">
+        <Globe size={14} className="ml-2 text-muted-foreground" />
+        {environments.map(env => (
+          <PillButton
+            key={env.id}
+            active={env.id === activeId}
+            onClick={() => handleSelect(env.id)}
+          >
+            {env.name}
+          </PillButton>
+        ))}
+      </div>
+      {/* Mobile: compact select */}
+      <select
+        value={activeId || ''}
+        onChange={e => handleSelect(e.target.value)}
+        className="sm:hidden h-9 rounded-full border border-input bg-background px-3 text-sm max-w-[120px] truncate"
+      >
+        {environments.map(env => (
+          <option key={env.id} value={env.id}>{env.name}</option>
+        ))}
+      </select>
+    </>
   );
 }

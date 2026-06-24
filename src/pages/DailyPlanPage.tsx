@@ -135,7 +135,7 @@ export default function DailyPlanPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold">今日规划</h1>
           {fullPlanOutput && totalPlanDays > 0 && (
@@ -144,7 +144,7 @@ export default function DailyPlanPage() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <EnvironmentPicker onSelect={() => {}} />
           {generating ? (
             <Button disabled size="sm">
