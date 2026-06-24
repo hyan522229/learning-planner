@@ -2,7 +2,7 @@
   "name": "学习规划器",
   "short_name": "学习规划",
   "description": "艾宾浩斯复习计划器",
-  "start_url": "/learning-planner/",
+  "start_url": "/learning-planner/?standalone=true",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#ffffff",

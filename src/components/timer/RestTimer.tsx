@@ -20,6 +20,31 @@ export function RestTimer() {
   const { playRandom } = useAudioFiles(activePersonaId ?? undefined);
   const alarmAudioRef = useRef<HTMLAudioElement | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const audioUnlocked = useRef(false);
+
+  // Unlock audio on first user interaction (required by mobile browsers)
+  useEffect(() => {
+    if (audioUnlocked.current) return;
+    const unlock = () => {
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        ctx.resume();
+        // Create silent buffer to fully unlock
+        const buf = ctx.createBuffer(1, 1, 22050);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start(0);
+        audioUnlocked.current = true;
+      } catch { /* ignore */ }
+    };
+    document.addEventListener('touchstart', unlock, { once: true });
+    document.addEventListener('click', unlock, { once: true });
+    return () => {
+      document.removeEventListener('touchstart', unlock);
+      document.removeEventListener('click', unlock);
+    };
+  }, []);
 
   // Handle alarm audio when phase changes to 'alarm'
   useEffect(() => {
@@ -37,6 +62,11 @@ export function RestTimer() {
     // Play alarm only if enabled
     if (!restAlarmEnabled) return;
 
+    // Vibrate on mobile if available
+    if (navigator.vibrate) {
+      navigator.vibrate([500, 200, 500, 200, 500]);
+    }
+
     // Try user-uploaded audio first (loop for alarm)
     const cleanup = playRandom('rest_alarm', true);
     if (cleanup) {
@@ -47,7 +77,11 @@ export function RestTimer() {
       audio.loop = true;
       audio.volume = 0.7;
       alarmAudioRef.current = audio;
-      audio.play().catch(() => {});
+      // Retry play on mobile (autoplay may be blocked)
+      audio.play().catch(() => {
+        // Retry after 500ms — sometimes the audio context needs time
+        setTimeout(() => audio.play().catch(() => {}), 500);
+      });
     }
 
     return () => {
