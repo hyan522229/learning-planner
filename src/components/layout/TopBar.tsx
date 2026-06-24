@@ -64,7 +64,7 @@ export function TopBar() {
               ) : (
                 <span
                   className="flex items-center justify-center w-7 h-7 rounded-full text-base shrink-0"
-                  style={{ backgroundColor: activePersona?.color || '#6366f1' }}
+                  style={{ backgroundColor: activePersona?.color || '#0066cc' }}
                 >
                   {activePersona?.avatarEmoji || '➕'}
                 </span>

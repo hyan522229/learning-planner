@@ -11,28 +11,33 @@ export function useTimer() {
       intervalRef.current = setInterval(() => {
         tick();
       }, 250);
-      // Prevent screen lock while timer is running
-      if ('wakeLock' in navigator) {
-        (navigator as any).wakeLock.request('screen').then((sentinel: any) => {
-          wakeLockRef.current = sentinel;
-          sentinel.addEventListener('release', () => { wakeLockRef.current = null; });
-        }).catch(() => {});
-      }
+
+      // Prevent screen lock
+      const requestWakeLock = () => {
+        if ('wakeLock' in navigator && !wakeLockRef.current) {
+          (navigator as any).wakeLock.request('screen').then((sentinel: any) => {
+            wakeLockRef.current = sentinel;
+            sentinel.addEventListener('release', () => { wakeLockRef.current = null; });
+          }).catch(() => {});
+        }
+      };
+      requestWakeLock();
+
+      // Re-acquire on visibility change
+      const onVisible = () => {
+        tick(); // catch up on missed time
+        requestWakeLock();
+      };
+      document.addEventListener('visibilitychange', onVisible);
+      return () => {
+        document.removeEventListener('visibilitychange', onVisible);
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        if (wakeLockRef.current) { wakeLockRef.current.release().catch(() => {}); wakeLockRef.current = null; }
+      };
     } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (wakeLockRef.current) {
-        wakeLockRef.current.release().catch(() => {});
-        wakeLockRef.current = null;
-      }
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+      if (wakeLockRef.current) { wakeLockRef.current.release().catch(() => {}); wakeLockRef.current = null; }
     }
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
   }, [phase, tick]);
 
   useEffect(() => {

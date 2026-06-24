@@ -45,7 +45,7 @@ export default function KnowledgePage() {
   const calendarItems: CalendarItem[] = useMemo(() => {
     const items: CalendarItem[] = [];
     for (const kp of knowledgePoints) {
-      const color = subjectMap.get(kp.subjectId)?.color || '#6366f1';
+      const color = subjectMap.get(kp.subjectId)?.color || '#0066cc';
       const dates = calculateReviewDates(kp.studyDate);
       for (let i = 0; i < dates.length; i++) {
         const stageStatus: CalendarItem['stageStatus'] =

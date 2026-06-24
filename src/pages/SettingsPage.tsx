@@ -38,7 +38,7 @@ export default function SettingsPage() {
 
   const handleAddPersona = async () => {
     if (!newPersonaName.trim()) return;
-    await createPersona(newPersonaName.trim(), '➕', '#6366f1');
+    await createPersona(newPersonaName.trim(), '➕', '#0066cc');
     setNewPersonaName('');
     resetKeys.current.persona++;
   };

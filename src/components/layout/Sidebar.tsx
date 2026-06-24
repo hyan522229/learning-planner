@@ -100,7 +100,7 @@ export function Sidebar() {
                 ) : (
                   <span
                     className="flex items-center justify-center w-7 h-7 rounded-full text-sm shrink-0"
-                    style={{ backgroundColor: activePersona.color || '#6366f1' }}
+                    style={{ backgroundColor: activePersona.color || '#0066cc' }}
                   >
                     {activePersona.avatarEmoji}
                   </span>
@@ -113,7 +113,7 @@ export function Sidebar() {
               ) : (
                 <span
                   className="flex items-center justify-center w-7 h-7 rounded-full text-sm"
-                  style={{ backgroundColor: activePersona.color || '#6366f1' }}
+                  style={{ backgroundColor: activePersona.color || '#0066cc' }}
                 >
                   {activePersona.avatarEmoji}
                 </span>

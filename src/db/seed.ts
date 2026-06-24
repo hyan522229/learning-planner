@@ -94,7 +94,7 @@ export async function seedDatabase() {
     id: personaId,
     name: '我',
     avatarEmoji: '➕',
-    color: '#6366f1',
+    color: '#0066cc',
     createdAt: now,
   });
 

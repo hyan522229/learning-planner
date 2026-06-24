@@ -209,7 +209,7 @@ export function FullScreenCalendar({ items, emptyLabel = "暂无", formatLabel }
                       >
                         <span
                           className="w-1.5 h-1.5 rounded-full shrink-0"
-                          style={{ backgroundColor: item.color || "#6366f1" }}
+                          style={{ backgroundColor: item.color || "#0066cc" }}
                         />
                         <span className="truncate">{labelFn(item)}</span>
                       </div>
@@ -288,7 +288,7 @@ export function FullScreenCalendar({ items, emptyLabel = "暂无", formatLabel }
                   item.date < today.getTime() && !isToday(selectedDay) && "opacity-50",
                 )}
               >
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color || "#6366f1" }} />
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color || "#0066cc" }} />
                 <span className="flex-1">{labelFn(item)}</span>
                 {item.stage !== undefined && (
                   <span className="text-xs px-2 py-0.5 rounded-full shrink-0 bg-muted text-muted-foreground">R{item.stage + 1}</span>
