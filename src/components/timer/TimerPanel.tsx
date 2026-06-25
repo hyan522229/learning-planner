@@ -9,6 +9,7 @@ import { useAudioFiles } from '@/hooks/useAudioFiles';
 import { useConfetti } from '@/hooks/useConfetti';
 import { usePersonaStore } from '@/stores/personaStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { playCompletionAudio, stopAudio } from '@/hooks/taskCompleteAudio';
 import { useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft } from 'lucide-react';
@@ -31,14 +32,12 @@ export function TimerPanel() {
 
   useEffect(() => {
     if (prevPhase.current !== 'completed' && phase === 'completed') {
-      // Play music only if enabled
+      // Play music globally — survives page navigation
       if (taskCompleteMusicEnabled) {
-        const cleanup = playRandom('task_complete');
-        if (cleanup) {
-          activeAudioCleanup.current = () => { cleanup(); activeAudioCleanup.current = null; };
-        } else {
-          play('block-complete');
-        }
+        playCompletionAudio(playRandom, () => play('block-complete'));
+        activeAudioCleanup.current = stopAudio;
+      } else {
+        play('block-complete');
       }
       fire('medium');
       if (currentBlockId) {

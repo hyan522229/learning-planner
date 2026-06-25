@@ -1,21 +1,33 @@
-// Minimal service worker — no aggressive caching.
-// Always fetches from network so updates appear immediately.
+// Network-first service worker — always tries to get latest version
+const CACHE_NAME = 'lp-v2';
+
 self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(self.clients.claim());
+  // Clear old caches
+  caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
 });
 
 self.addEventListener('fetch', (e) => {
-  // Network-first: always try network, fallback to offline page
+  // Only handle GET requests
+  if (e.request.method !== 'GET') return;
+
   e.respondWith(
-    fetch(e.request).catch(() => {
-      return new Response('离线状态，请连接网络后重试', {
-        status: 503,
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      });
-    })
+    fetch(e.request)
+      .then(response => {
+        // Cache successful responses for offline fallback
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        return response;
+      })
+      .catch(() => {
+        // Offline: return cached version if available
+        return caches.match(e.request).then(cached => {
+          return cached || new Response('离线状态', { status: 503 });
+        });
+      })
   );
 });
