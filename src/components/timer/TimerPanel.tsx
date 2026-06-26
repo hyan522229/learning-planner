@@ -5,11 +5,11 @@ import { useTimerStore } from '@/stores/timerStore';
 import { useBlockStore } from '@/stores/blockStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useSound } from '@/hooks/useSound';
-import { useAudioFiles } from '@/hooks/useAudioFiles';
 import { useConfetti } from '@/hooks/useConfetti';
 import { usePersonaStore } from '@/stores/personaStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { playCompletionAudio, stopAudio } from '@/hooks/taskCompleteAudio';
+import { stopAudio, isAudioPlaying, playAudioFromBlob, playAudioFromPath } from '@/hooks/taskCompleteAudio';
+import { db } from '@/db';
 import { useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft } from 'lucide-react';
@@ -27,14 +27,23 @@ export function TimerPanel() {
   const { fire } = useConfetti();
   const activePersonaId = usePersonaStore(s => s.activePersonaId);
   const taskCompleteMusicEnabled = useSettingsStore(s => s.settings?.taskCompleteMusicEnabled ?? true);
-  const { playRandom } = useAudioFiles(activePersonaId ?? undefined);
   const prevPhase = useRef(phase);
 
   useEffect(() => {
     if (prevPhase.current !== 'completed' && phase === 'completed') {
-      // Play music globally — survives page navigation
+      // Play music globally — module-level audio survives page navigation
       if (taskCompleteMusicEnabled) {
-        playCompletionAudio(playRandom, () => play('block-complete'));
+        (async () => {
+          try {
+            const files = await db.audioFiles.where({ personaId: activePersonaId ?? '' }).filter(f => f.category === 'task_complete').toArray();
+            if (files.length > 0) {
+              const picked = files[Math.floor(Math.random() * files.length)];
+              playAudioFromBlob(picked.data);
+            } else {
+              play('block-complete');
+            }
+          } catch { play('block-complete'); }
+        })();
         activeAudioCleanup.current = stopAudio;
       } else {
         play('block-complete');
@@ -49,7 +58,7 @@ export function TimerPanel() {
       play('timer-start');
     }
     prevPhase.current = phase;
-  }, [phase, play, fire, playRandom, currentBlockId, updateBlockStatus, lastElapsedSeconds, taskCompleteMusicEnabled]);
+  }, [phase, play, fire, currentBlockId, updateBlockStatus, lastElapsedSeconds, taskCompleteMusicEnabled, activePersonaId]);
 
   const handleUndo = () => {
     reset();

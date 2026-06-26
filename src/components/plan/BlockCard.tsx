@@ -61,25 +61,25 @@ export function BlockCard({ block, onStart, onComplete, onSkip }: Props) {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className={cn(
-        'flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors',
+        'flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-xl border transition-colors',
         config.bg,
         isDone && 'opacity-50',
         isSkipped && 'opacity-40 line-through'
       )}
     >
       {/* Time */}
-      <div className="text-xs font-mono text-muted-foreground shrink-0 w-16">
+      <div className="text-xs font-mono text-muted-foreground shrink-0">
         <Clock size={12} className="inline mr-1" />
         {block.timeSlotStart}
       </div>
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className={cn('font-medium text-sm', isDone && 'line-through')}>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={cn('font-medium text-sm truncate', isDone && 'line-through')}>
             {block.name}
           </span>
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
             {config.label}
           </Badge>
         </div>
@@ -89,7 +89,7 @@ export function BlockCard({ block, onStart, onComplete, onSkip }: Props) {
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-1 shrink-0 self-end sm:self-center">
         {block.status === 'scheduled' && (
           <>
             <Button

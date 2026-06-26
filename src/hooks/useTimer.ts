@@ -14,7 +14,7 @@ export function useTimer() {
 
       // Prevent screen lock
       const requestWakeLock = () => {
-        if ('wakeLock' in navigator && !wakeLockRef.current) {
+        if ('wakeLock' in navigator) {
           (navigator as any).wakeLock.request('screen').then((sentinel: any) => {
             wakeLockRef.current = sentinel;
             sentinel.addEventListener('release', () => { wakeLockRef.current = null; });
@@ -22,14 +22,17 @@ export function useTimer() {
         }
       };
       requestWakeLock();
+      // Re-request every 30s — mobile OS may release wake lock
+      const wakeInterval = setInterval(requestWakeLock, 30000);
 
       // Re-acquire on visibility change
       const onVisible = () => {
-        tick(); // catch up on missed time
+        tick();
         requestWakeLock();
       };
       document.addEventListener('visibilitychange', onVisible);
       return () => {
+        clearInterval(wakeInterval);
         document.removeEventListener('visibilitychange', onVisible);
         if (intervalRef.current) clearInterval(intervalRef.current);
         if (wakeLockRef.current) { wakeLockRef.current.release().catch(() => {}); wakeLockRef.current = null; }
