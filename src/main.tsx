@@ -5,24 +5,35 @@ import App from './App';
 
 // Register service worker with auto-update
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw.js').then(reg => {
-    // Check for updates every page load
+  const reloadOnUpdate = (reg: ServiceWorkerRegistration) => {
+    if (reg.waiting) {
+      reg.waiting.postMessage('skipWaiting');
+      window.location.reload();
+      return;
+    }
     reg.addEventListener('updatefound', () => {
-      const newWorker = reg.installing;
-      if (!newWorker) return;
-      newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          // New version available — force reload
-          newWorker.postMessage('skipWaiting');
+      const w = reg.installing;
+      if (!w) return;
+      w.addEventListener('statechange', () => {
+        if (w.state === 'installed' && navigator.serviceWorker.controller) {
+          w.postMessage('skipWaiting');
           window.location.reload();
         }
       });
     });
-    // If already waiting, activate immediately
-    if (reg.waiting) {
-      reg.waiting.postMessage('skipWaiting');
-      window.location.reload();
-    }
+  };
+
+  navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw.js').then(reg => {
+    reloadOnUpdate(reg);
+    // Also check on visibility change (PWA standalone wakes up)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reg.update();
+    });
+  });
+
+  // Check for controller change (new SW took over)
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload();
   });
 }
 

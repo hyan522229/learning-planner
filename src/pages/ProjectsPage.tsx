@@ -229,7 +229,7 @@ export default function ProjectsPage() {
                               {categoryLabels[project.category].label}
                             </Badge>
                           )}
-                          <Badge variant="outline" className="text-[10px]">
+                          <Badge variant="outline" className="text-[10px] hidden sm:inline-flex">
                             优先级 {PRIORITY_LABELS[project.priority] ?? project.priority}
                           </Badge>
                           {subject && <Badge variant="secondary" className="text-[10px]">{subject.name}</Badge>}
@@ -244,23 +244,23 @@ export default function ProjectsPage() {
                       </div>
                       <div className="flex items-center gap-0.5 shrink-0 ml-2">
                         <Button size="sm" variant="ghost"
+                          onClick={() => { setUpdateProjectId(project.id); setUpdateAmount('0'); }}>
+                          + 进度
+                        </Button>
+                        <Button size="sm" variant="ghost" className="hidden sm:flex"
                           onClick={() => updatePriority(project.id, Math.max(1, project.priority - 1) as Priority)}
                           title="提高优先级">
                           <ChevronUp size={14} />
                         </Button>
-                        <Button size="sm" variant="ghost"
+                        <Button size="sm" variant="ghost" className="hidden sm:flex"
                           onClick={() => updatePriority(project.id, Math.min(5, project.priority + 1) as Priority)}
                           title="降低优先级">
                           <ChevronDown size={14} />
                         </Button>
-                        <Button size="sm" variant="ghost"
-                          onClick={() => { setUpdateProjectId(project.id); setUpdateAmount('0'); }}>
-                          + 进度
-                        </Button>
                         <Button size="sm" variant="ghost" onClick={() => handleAddToReviewEngine(project)} title="加入复习引擎">
                           <Brain size={14} />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => handleShowLogs(project.id)} title="进度记录">
+                        <Button size="sm" variant="ghost" className="hidden sm:flex" onClick={() => handleShowLogs(project.id)} title="进度记录">
                           <History size={14} />
                         </Button>
                         <button onClick={() => deleteProject(project.id)}
