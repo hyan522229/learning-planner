@@ -4,9 +4,10 @@ import { Button } from '@/components/ui';
 import { StartButton } from '@/components/ui/StartButton';
 import { Card, CardContent } from '@/components/ui';
 import { useRestTimer } from '@/hooks/useRestTimer';
-import { useAudioFiles } from '@/hooks/useAudioFiles';
 import { usePersonaStore } from '@/stores/personaStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { playAudioFromBlob, playAudioFromPath, stopAudio } from '@/hooks/taskCompleteAudio';
+import { db } from '@/db';
 import { Coffee, Play, Square, BellOff, Clock } from 'lucide-react';
 
 const DURATION_OPTIONS = [5, 10, 15] as const;
@@ -17,9 +18,6 @@ export function RestTimer() {
   const [pickMinutes, setPickMinutes] = useState<number>(10);
   const activePersonaId = usePersonaStore(s => s.activePersonaId);
   const restAlarmEnabled = useSettingsStore(s => s.settings?.restAlarmEnabled ?? true);
-  const { playRandom } = useAudioFiles(activePersonaId ?? undefined);
-  const alarmAudioRef = useRef<HTMLAudioElement | null>(null);
-  const cleanupRef = useRef<(() => void) | null>(null);
   const audioUnlocked = useRef(false);
 
   // Unlock audio on first user interaction (required by mobile browsers)
@@ -46,61 +44,35 @@ export function RestTimer() {
     };
   }, []);
 
-  // Handle alarm audio when phase changes to 'alarm'
+  // Handle alarm audio globally — survives page navigation
   useEffect(() => {
-    if (phase !== 'alarm') {
-      // Clean up previous alarm audio
-      if (cleanupRef.current) { cleanupRef.current(); cleanupRef.current = null; }
-      if (alarmAudioRef.current) {
-        alarmAudioRef.current.pause();
-        alarmAudioRef.current.currentTime = 0;
-        alarmAudioRef.current = null;
-      }
-      return;
-    }
-
-    // Play alarm only if enabled
+    if (phase !== 'alarm') return;
     if (!restAlarmEnabled) return;
 
-    // Vibrate on mobile if available
     if (navigator.vibrate) {
       navigator.vibrate([500, 200, 500, 200, 500]);
     }
 
-    // Try user-uploaded audio first (loop for alarm)
-    const cleanup = playRandom('rest_alarm', true);
-    if (cleanup) {
-      cleanupRef.current = cleanup;
-    } else {
-      // Fall back to default alarm.mp3
-      const audio = new Audio(ALARM_AUDIO);
-      audio.loop = true;
-      audio.volume = 0.7;
-      alarmAudioRef.current = audio;
-      // Retry play on mobile (autoplay may be blocked)
-      audio.play().catch(() => {
-        // Retry after 500ms — sometimes the audio context needs time
-        setTimeout(() => audio.play().catch(() => {}), 500);
-      });
-    }
-
-    return () => {
-      if (cleanupRef.current) { cleanupRef.current(); cleanupRef.current = null; }
-      if (alarmAudioRef.current) {
-        alarmAudioRef.current.pause();
-        alarmAudioRef.current.currentTime = 0;
-        alarmAudioRef.current = null;
+    (async () => {
+      try {
+        const files = await db.audioFiles
+          .where({ personaId: activePersonaId ?? '' })
+          .filter(f => f.category === 'rest_alarm')
+          .toArray();
+        if (files.length > 0) {
+          const picked = files[Math.floor(Math.random() * files.length)];
+          playAudioFromBlob(picked.data, true);
+        } else {
+          playAudioFromPath(ALARM_AUDIO, true);
+        }
+      } catch {
+        playAudioFromPath(ALARM_AUDIO, true);
       }
-    };
-  }, [phase, playRandom, restAlarmEnabled]);
+    })();
+  }, [phase, restAlarmEnabled, activePersonaId]);
 
   const handleDismiss = () => {
-    if (cleanupRef.current) { cleanupRef.current(); cleanupRef.current = null; }
-    if (alarmAudioRef.current) {
-      alarmAudioRef.current.pause();
-      alarmAudioRef.current.currentTime = 0;
-      alarmAudioRef.current = null;
-    }
+    stopAudio();
     dismissAlarm();
   };
 

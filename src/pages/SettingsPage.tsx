@@ -538,9 +538,13 @@ function AudioSection({
             </div>
           ))
         )}
-        <Button onClick={handlePick} variant="outline" size="sm" className="w-full gap-2 mt-2">
+        <button
+          type="button"
+          onClick={handlePick}
+          className="w-full flex items-center justify-center gap-2 mt-2 h-8 rounded-lg border border-input bg-background text-sm shadow-sm shadow-black/5 hover:bg-accent hover:text-accent-foreground transition-colors"
+        >
           <Plus size={14} /> 添加音乐
-        </Button>
+        </button>
       </CardContent>
     </Card>
   );
