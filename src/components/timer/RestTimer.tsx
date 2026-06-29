@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui';
 import { useRestTimer } from '@/hooks/useRestTimer';
 import { usePersonaStore } from '@/stores/personaStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { playAudioFromBlob, playAudioFromPath, stopAudio } from '@/hooks/taskCompleteAudio';
+import { playAudioFromBlob, playAudioFromPath, stopAudio, isAudioPlaying } from '@/hooks/taskCompleteAudio';
 import { db } from '@/db';
 import { Coffee, Play, Square, BellOff, Clock } from 'lucide-react';
 
@@ -48,6 +48,8 @@ export function RestTimer() {
   useEffect(() => {
     if (phase !== 'alarm') return;
     if (!restAlarmEnabled) return;
+    // Don't restart if already playing from a previous mount
+    if (isAudioPlaying()) return;
 
     if (navigator.vibrate) {
       navigator.vibrate([500, 200, 500, 200, 500]);

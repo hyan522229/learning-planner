@@ -8,7 +8,7 @@ import { useSound } from '@/hooks/useSound';
 import { useConfetti } from '@/hooks/useConfetti';
 import { usePersonaStore } from '@/stores/personaStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { stopAudio, isAudioPlaying, playAudioFromBlob, playAudioFromPath } from '@/hooks/taskCompleteAudio';
+import { stopAudio, isAudioPlaying, playAudioFromBlob } from '@/hooks/taskCompleteAudio';
 import { db } from '@/db';
 import { useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
@@ -32,7 +32,8 @@ export function TimerPanel() {
   useEffect(() => {
     if (prevPhase.current !== 'completed' && phase === 'completed') {
       // Play music globally — module-level audio survives page navigation
-      if (taskCompleteMusicEnabled) {
+      // Don't restart if already playing from previous mount
+      if (taskCompleteMusicEnabled && !isAudioPlaying()) {
         (async () => {
           try {
             const files = await db.audioFiles.where({ personaId: activePersonaId ?? '' }).filter(f => f.category === 'task_complete').toArray();
