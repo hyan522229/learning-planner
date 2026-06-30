@@ -18,6 +18,7 @@ export function KnowledgeForm({ onClose }: Props) {
   const [reviewDuration, setReviewDuration] = useState(10);
   const [initialStage, setInitialStage] = useState(0);
   const [showPlan, setShowPlan] = useState(false);
+  const [enabledStages, setEnabledStages] = useState<boolean[] | undefined>();
   const addKnowledge = useKnowledgeStore(s => s.addKnowledgePoint);
   const activePersonaId = usePersonaStore(s => s.activePersonaId);
   const subjects = useSubjectStore(s => s.subjects);
@@ -31,6 +32,7 @@ export function KnowledgeForm({ onClose }: Props) {
       studyDate: new Date(studyDate).getTime(),
       reviewDurationMinutes: reviewDuration,
       initialStage,
+      enabledStages,
     });
     onClose();
   };
@@ -130,6 +132,7 @@ export function KnowledgeForm({ onClose }: Props) {
         onSave={(data) => {
           setInitialStage(data.initialStage);
           setReviewDuration(data.reviewDurationMinutes);
+          setEnabledStages(data.enabledStages);
           setShowPlan(false);
         }}
       />
