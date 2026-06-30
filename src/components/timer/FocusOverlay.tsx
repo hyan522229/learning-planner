@@ -83,13 +83,13 @@ export function FocusOverlay() {
   const elapsedMin = Math.floor(elapsed / 60);
   const elapsedSec = elapsed % 60;
   const progress = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0;
-  const ringSize = isMobile && landscape ? 260 : 320;
-  const ringStroke = isMobile && landscape ? 12 : 16;
+  const ringSize = isMobile && landscape ? 220 : 320;
+  const ringStroke = isMobile && landscape ? 10 : 16;
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex items-center justify-center overflow-hidden">
       {/* Top row buttons */}
-      <div className="absolute top-4 left-4 right-4 z-10 flex justify-between pointer-events-none">
+      <div className="absolute top-3 left-3 right-3 z-10 flex justify-between pointer-events-none">
         <div className="flex gap-2 pointer-events-auto">
           <button onClick={handleToggleOrientation} className="p-2.5 rounded-full bg-muted/60 active:scale-90 transition-all">
             <RotateCw size={20} />
@@ -100,37 +100,9 @@ export function FocusOverlay() {
         </button>
       </div>
 
-      {/* Main content — rotated on mobile landscape */}
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="flex flex-col items-center justify-center gap-5 select-none"
-        style={isMobile && landscape ? {
-          transform: 'rotate(90deg)',
-          width: '100vh',
-          height: '100vw',
-        } : { width: '100%' }}
-      >
-        {/* Ring + time */}
-        <div className="relative">
-          <TimerRing progress={progress} size={ringSize} strokeWidth={ringStroke} />
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-            <div className="text-5xl sm:text-7xl font-bold tabular-nums tracking-wide">
-              {timeStr}
-            </div>
-            {blockName && (
-              <div className="text-xs text-muted-foreground max-w-[180px] truncate px-2">{blockName}</div>
-            )}
-          </div>
-        </div>
-
-        {/* Elapsed */}
-        <div className="text-sm text-muted-foreground">
-          已过 {String(elapsedMin).padStart(2, '0')}:{String(elapsedSec).padStart(2, '0')}
-        </div>
-
-        {/* Time adjustment */}
-        <div className="flex items-center gap-3">
+      {/* Time adjustment — bottom */}
+      <div className="absolute bottom-4 left-4 right-4 z-10 flex justify-center pointer-events-none">
+        <div className="flex items-center gap-3 pointer-events-auto">
           <button onClick={() => shorten(5)} className="p-2.5 rounded-full bg-muted/50 active:scale-90 transition-all">
             <Minus size={18} />
           </button>
@@ -139,8 +111,35 @@ export function FocusOverlay() {
             <Plus size={18} />
           </button>
         </div>
+      </div>
 
-        <p className="text-xs text-muted-foreground/40">{phase === 'running' ? '专注中' : '已暂停'}</p>
+      {/* Main content — rotated on mobile landscape */}
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="flex flex-col items-center justify-center select-none"
+        style={isMobile && landscape ? {
+          transform: 'rotate(90deg)',
+        } : {}}
+      >
+        {/* Ring + time — all inside */}
+        <div className="relative">
+          <TimerRing progress={progress} size={ringSize} strokeWidth={ringStroke} />
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+            <div
+              className="font-bold tabular-nums tracking-wide"
+              style={{ fontSize: isMobile && landscape ? '2.5rem' : '4.5rem' }}
+            >
+              {timeStr}
+            </div>
+            {blockName && (
+              <div className="text-xs text-muted-foreground max-w-[160px] truncate px-2">{blockName}</div>
+            )}
+            <div className="text-xs text-muted-foreground/50 mt-0.5">
+              {phase === 'running' ? '专注中' : '已暂停'} · {String(elapsedMin).padStart(2, '0')}:{String(elapsedSec).padStart(2, '0')}
+            </div>
+          </div>
+        </div>
       </motion.div>
     </div>
   );
