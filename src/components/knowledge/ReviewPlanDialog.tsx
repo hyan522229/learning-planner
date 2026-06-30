@@ -48,7 +48,7 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle>设置复习计划</DialogTitle>
         </DialogHeader>
@@ -56,29 +56,28 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
           <p className="text-xs text-muted-foreground">
             勾选你希望复习的 R 阶段，从第一个勾选的阶段开始复习。
           </p>
-          <div className="grid grid-cols-2 gap-1 max-h-64 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
             {Array.from({ length: 10 }, (_, i) => {
               const interval = REVIEW_INTERVALS[i];
-              const date = dates[i];
-              const disabled = i > 0 && checked[i - 1] && i > (lastChecked >= 0 ? lastChecked : 0);
-              // Disable if there's a gap (unchecked between two checked)
               const hasGap = i > firstChecked && !checked.slice(firstChecked, i).every(Boolean);
               return (
                 <label
                   key={i}
                   className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm cursor-pointer transition-colors',
-                    checked[i] ? 'bg-primary/10 border-primary/30' : 'hover:bg-muted',
-                    hasGap && 'opacity-50 pointer-events-none',
+                    'flex items-center gap-2 px-3 py-2 rounded-lg border-2 text-sm cursor-pointer transition-all',
+                    checked[i]
+                      ? 'bg-blue-50 border-blue-400 text-blue-800 dark:bg-blue-950 dark:border-blue-600 dark:text-blue-200'
+                      : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600',
+                    hasGap && 'opacity-40 pointer-events-none',
                   )}
                 >
                   <input
                     type="checkbox"
                     checked={checked[i]}
                     onChange={() => toggle(i)}
-                    className="rounded"
+                    className="rounded accent-blue-600"
                   />
-                  <span className="flex-1">R{i + 1}</span>
+                  <span className="flex-1 font-medium">R{i + 1}</span>
                   <span className="text-[10px] text-muted-foreground">
                     +{interval}天
                   </span>
