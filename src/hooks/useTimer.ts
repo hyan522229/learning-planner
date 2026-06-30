@@ -2,17 +2,12 @@ import { useEffect, useRef } from 'react';
 import { useTimerStore } from '@/stores/timerStore';
 
 export function useTimer() {
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wakeLockRef = useRef<any>(null);
   const { phase, remainingSeconds, totalSeconds, currentBlockId, start, pause, resume, tick, extend, shorten, complete, reset } = useTimerStore();
 
+  // Wake Lock management — interval ticking is in store (global)
   useEffect(() => {
     if (phase === 'running') {
-      intervalRef.current = setInterval(() => {
-        tick();
-      }, 250);
-
-      // Prevent screen lock
       const requestWakeLock = () => {
         if ('wakeLock' in navigator) {
           (navigator as any).wakeLock.request('screen').then((sentinel: any) => {
@@ -22,32 +17,25 @@ export function useTimer() {
         }
       };
       requestWakeLock();
-      // Re-request every 30s — mobile OS may release wake lock
       const wakeInterval = setInterval(requestWakeLock, 30000);
 
-      // Re-acquire on visibility change
       const onVisible = () => {
-        tick();
+        tick(); // catch up on background time
         requestWakeLock();
       };
       document.addEventListener('visibilitychange', onVisible);
       return () => {
         clearInterval(wakeInterval);
         document.removeEventListener('visibilitychange', onVisible);
-        if (intervalRef.current) clearInterval(intervalRef.current);
         if (wakeLockRef.current) { wakeLockRef.current.release().catch(() => {}); wakeLockRef.current = null; }
       };
     } else {
-      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
       if (wakeLockRef.current) { wakeLockRef.current.release().catch(() => {}); wakeLockRef.current = null; }
     }
   }, [phase, tick]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        // handled by FocusOverlay
-      }
       if (e.code === 'Space' && e.target === document.body) {
         e.preventDefault();
         if (phase === 'running') pause();

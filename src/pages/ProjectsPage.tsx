@@ -50,6 +50,7 @@ export default function ProjectsPage() {
   const [initialProgress, setInitialProgress] = useState('0');
   const [initialSpeed, setInitialSpeed] = useState('');
   const [createReview, setCreateReview] = useState(false);
+  const [showReviewPlan, setShowReviewPlan] = useState(false);
   const [dailyBlockLimit, setDailyBlockLimit] = useState('-1');
 
   const [updateProjectId, setUpdateProjectId] = useState<string | null>(null);
@@ -505,13 +506,30 @@ export default function ProjectsPage() {
               />
               <p className="text-[10px] text-muted-foreground">仅供参考，实际排块不受此限制。0=暂不自动安排</p>
             </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setShowForm(false)}>取消</Button>
-              <Button onClick={handleAdd}>添加</Button>
+            <div className="space-y-2 pt-2">
+              <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setShowReviewPlan(true)}>
+                设置复习计划
+              </Button>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowForm(false)}>取消</Button>
+                <Button onClick={handleAdd}>添加</Button>
+              </div>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Review plan dialog for new project */}
+      <ReviewPlanDialog
+        open={showReviewPlan}
+        onClose={() => setShowReviewPlan(false)}
+        onSave={(data) => {
+          setCreateReview(true);
+          setShowReviewPlan(false);
+          // Store plan data for use when project is created
+          (window as any).__pendingReviewPlan = data;
+        }}
+      />
 
       {/* Update Progress Dialog */}
       <Dialog open={!!updateProjectId} onOpenChange={(v) => { if (!v) setUpdateProjectId(null); }}>

@@ -29,6 +29,23 @@ export function TimerPanel() {
   const taskCompleteMusicEnabled = useSettingsStore(s => s.settings?.taskCompleteMusicEnabled ?? true);
   const prevPhase = useRef(phase);
 
+  // Mobile: auto fullscreen landscape on timer start
+  useEffect(() => {
+    if (prevPhase.current !== 'running' && phase === 'running') {
+      const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+      if (isMobile && document.fullscreenEnabled) {
+        document.documentElement.requestFullscreen().catch(() => {});
+        try { (screen.orientation as any)?.lock?.('landscape').catch(() => {}); } catch {}
+      }
+    }
+    if (phase !== 'running') {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+      try { (screen.orientation as any)?.unlock?.(); } catch {}
+    }
+  }, [phase]);
+
   useEffect(() => {
     if (prevPhase.current !== 'completed' && phase === 'completed') {
       // Play music globally — module-level audio survives page navigation

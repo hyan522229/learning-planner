@@ -22,30 +22,58 @@ const initialState: TimerState = {
   lastElapsedSeconds: 0,
 };
 
+// Global interval — survives component unmount
+let tickInterval: ReturnType<typeof setInterval> | null = null;
+
+function startTicking() {
+  stopTicking();
+  tickInterval = setInterval(() => {
+    useTimerStore.getState().tick();
+    const s = useTimerStore.getState();
+    if (s.phase !== 'running') stopTicking();
+  }, 250);
+}
+
+function stopTicking() {
+  if (tickInterval) { clearInterval(tickInterval); tickInterval = null; }
+}
+
 export const useTimerStore = create<TimerState & TimerActions>((set) => ({
   ...initialState,
 
-  start: (blockId, durationMinutes) => set({
-    phase: 'running',
-    currentBlockId: blockId,
-    totalSeconds: durationMinutes * 60,
-    remainingSeconds: durationMinutes * 60,
-    startedAt: Date.now(),
-    targetEnd: Date.now() + durationMinutes * 60000,
-  }),
+  start: (blockId, durationMinutes) => {
+    stopTicking();
+    set({
+      phase: 'running',
+      currentBlockId: blockId,
+      totalSeconds: durationMinutes * 60,
+      remainingSeconds: durationMinutes * 60,
+      startedAt: Date.now(),
+      targetEnd: Date.now() + durationMinutes * 60000,
+    });
+    startTicking();
+  },
 
-  pause: () => set({ phase: 'paused', targetEnd: null }),
+  pause: () => {
+    stopTicking();
+    set({ phase: 'paused', targetEnd: null });
+  },
 
-  resume: () => set(s => ({
-    phase: 'running',
-    startedAt: Date.now(),
-    targetEnd: Date.now() + s.remainingSeconds * 1000,
-  })),
+  resume: () => {
+    stopTicking();
+    set(s => ({
+      phase: 'running',
+      startedAt: Date.now(),
+      targetEnd: Date.now() + s.remainingSeconds * 1000,
+    }));
+    startTicking();
+  },
 
   tick: () => set(s => {
     if (s.phase !== 'running' || !s.targetEnd) return {};
     const remaining = Math.max(0, Math.ceil((s.targetEnd - Date.now()) / 1000));
     if (remaining <= 0) {
+      stopTicking();
       return { remainingSeconds: 0, targetEnd: null, phase: 'completed' as const, lastElapsedSeconds: s.totalSeconds };
     }
     return { remainingSeconds: remaining };
@@ -71,12 +99,18 @@ export const useTimerStore = create<TimerState & TimerActions>((set) => ({
     };
   }),
 
-  complete: () => set(s => ({
-    phase: 'completed',
-    remainingSeconds: 0,
-    targetEnd: null,
-    lastElapsedSeconds: s.totalSeconds - s.remainingSeconds,
-  })),
+  complete: () => {
+    stopTicking();
+    set(s => ({
+      phase: 'completed',
+      remainingSeconds: 0,
+      targetEnd: null,
+      lastElapsedSeconds: s.totalSeconds - s.remainingSeconds,
+    }));
+  },
 
-  reset: () => set(initialState),
+  reset: () => {
+    stopTicking();
+    set(initialState);
+  },
 }));
