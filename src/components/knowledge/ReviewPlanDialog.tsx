@@ -72,7 +72,7 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
                   />
                   <span className="flex-1 font-medium">R{i + 1}</span>
                   <span className="text-[10px] text-muted-foreground">
-                    {format(date, 'M/d')}
+                    {format(dates[i], 'M/d')}
                   </span>
                 </label>
               );
