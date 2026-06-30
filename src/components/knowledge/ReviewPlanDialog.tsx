@@ -72,7 +72,7 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
                   />
                   <span className="flex-1 font-medium">R{i + 1}</span>
                   <span className="text-[10px] text-muted-foreground">
-                    +{interval}天
+                    {format(date, 'M/d')}
                   </span>
                 </label>
               );
@@ -80,7 +80,7 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
           </div>
           <div className="text-xs text-muted-foreground">
             选中 {checked.filter(Boolean).length} 个阶段
-            {firstChecked >= 0 && <>，从 R{firstChecked + 1} 开始</>}
+            {firstChecked >= 0 && <>，从 {format(dates[firstChecked], 'M月d日')} (R{firstChecked + 1}) 开始</>}
           </div>
           <div className="space-y-2">
             <Label>每次复习时长（分钟）</Label>
