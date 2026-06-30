@@ -612,6 +612,7 @@ export default function ProjectsPage() {
             studyDate: Date.now(),
             initialStage: data.initialStage,
             reviewDurationMinutes: data.reviewDurationMinutes,
+            enabledStages: data.enabledStages,
           });
           setReviewPlanProject(null);
         }}

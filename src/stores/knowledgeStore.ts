@@ -12,7 +12,7 @@ interface ReviewResult {
 }
 
 interface KnowledgeState {
-  addKnowledgePoint: (data: { personaId: string; subjectId: string; name: string; studyDate: number; reviewDurationMinutes?: number; initialStage?: number }) => Promise<string>;
+  addKnowledgePoint: (data: { personaId: string; subjectId: string; name: string; studyDate: number; reviewDurationMinutes?: number; initialStage?: number; enabledStages?: boolean[] }) => Promise<string>;
   updateReviewDuration: (id: string, minutes: number) => Promise<void>;
   submitReview: (id: string, rating: number, allowSkip?: boolean) => Promise<ReviewResult>;
   requestSkip: (id: string) => Promise<ReviewResult>;

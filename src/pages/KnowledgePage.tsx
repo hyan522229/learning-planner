@@ -47,7 +47,10 @@ export default function KnowledgePage() {
     for (const kp of knowledgePoints) {
       const color = subjectMap.get(kp.subjectId)?.color || '#0066cc';
       const dates = calculateReviewDates(kp.studyDate);
+      // Only show enabled stages (default: all enabled)
+      const enabled = kp.enabledStages || Array.from({ length: 10 }, () => true);
       for (let i = 0; i < dates.length; i++) {
+        if (!enabled[i]) continue; // skip disabled stages
         const stageStatus: CalendarItem['stageStatus'] =
           i < kp.currentStage ? 'past' :
           i === kp.currentStage ? 'current' : 'future';

@@ -9,7 +9,7 @@ import { cn } from '@/utils/cn';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSave: (data: { initialStage: number; reviewDurationMinutes: number }) => void;
+  onSave: (data: { initialStage: number; reviewDurationMinutes: number; enabledStages: boolean[] }) => void;
   defaultStage?: number;
   defaultDuration?: number;
 }
@@ -27,12 +27,6 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
   const toggle = (i: number) => {
     const next = [...checked];
     next[i] = !next[i];
-    // Ensure continuity: if a later stage is checked, all between should be checked too
-    const firstChecked = next.indexOf(true);
-    const lastChecked = next.lastIndexOf(true);
-    if (firstChecked >= 0 && lastChecked >= 0) {
-      for (let j = firstChecked; j <= lastChecked; j++) next[j] = true;
-    }
     setChecked(next);
   };
 
@@ -43,6 +37,7 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
     onSave({
       initialStage: Math.max(0, firstChecked),
       reviewDurationMinutes: Number(duration) || 10,
+      enabledStages: checked,
     });
   };
 
@@ -86,10 +81,8 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
             })}
           </div>
           <div className="text-xs text-muted-foreground">
-            从 R{firstChecked + 1} 开始
-            {firstChecked >= 0 && lastChecked >= 0 && firstChecked !== lastChecked && (
-              <>，到 R{lastChecked + 1} 结束</>
-            )}
+            选中 {checked.filter(Boolean).length} 个阶段
+            {firstChecked >= 0 && <>，从 R{firstChecked + 1} 开始</>}
           </div>
           <div className="space-y-2">
             <Label>每次复习时长（分钟）</Label>

@@ -41,6 +41,7 @@ export interface KnowledgePoint {
   errorCount: number;
   errorAtStage: number;
   status: KnowledgeStatus;
+  enabledStages?: boolean[];
   createdAt: number;
   updatedAt: number;
 }

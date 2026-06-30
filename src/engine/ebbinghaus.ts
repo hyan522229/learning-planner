@@ -77,6 +77,13 @@ export function advanceStage(point: KnowledgePoint, allowSkip: boolean = false):
     nextStage = Math.min(nextStage + 1, REVIEW_INTERVALS.length);
   }
 
+  // Skip unchecked stages if enabledStages is set
+  if (point.enabledStages && point.enabledStages.length === 10) {
+    while (nextStage < 10 && !point.enabledStages[nextStage]) {
+      nextStage++;
+    }
+  }
+
   // Keep reviewDates rooted at studyDate for calendar display
   const reviewDates = point.reviewDates.length === 10 ? point.reviewDates : calculateReviewDates(point.studyDate);
 
