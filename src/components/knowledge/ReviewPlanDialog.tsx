@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import { Button, Input, Label } from '@/components/ui';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
-import { calculateReviewDates } from '@/engine/ebbinghaus';
-import { format } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
 import { cn } from '@/utils/cn';
 
 interface Props {
@@ -14,11 +11,9 @@ interface Props {
   defaultDuration?: number;
 }
 
-const REVIEW_INTERVALS = [1, 2, 4, 7, 15, 30, 60, 120, 240, 365];
+const CUMULATIVE_DAYS = [1, 3, 7, 14, 29, 59, 119, 239, 479, 844];
 
 export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defaultDuration = 10 }: Props) {
-  const today = Date.now();
-  const dates = calculateReviewDates(today);
   const [checked, setChecked] = useState<boolean[]>(
     Array.from({ length: 10 }, (_, i) => i >= defaultStage)
   );
@@ -53,7 +48,6 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
           </p>
           <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
             {Array.from({ length: 10 }, (_, i) => {
-              const interval = REVIEW_INTERVALS[i];
               return (
                 <label
                   key={i}
@@ -72,7 +66,7 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
                   />
                   <span className="flex-1 font-medium">R{i + 1}</span>
                   <span className="text-[10px] text-muted-foreground">
-                    {format(dates[i], 'M/d')}
+                    第{CUMULATIVE_DAYS[i]}天
                   </span>
                 </label>
               );
@@ -80,7 +74,7 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
           </div>
           <div className="text-xs text-muted-foreground">
             选中 {checked.filter(Boolean).length} 个阶段
-            {firstChecked >= 0 && <>，从 {format(dates[firstChecked], 'M月d日')} (R{firstChecked + 1}) 开始</>}
+            {firstChecked >= 0 && <>，从第{CUMULATIVE_DAYS[firstChecked]}天 (R{firstChecked + 1}) 开始</>}
           </div>
           <div className="space-y-2">
             <Label>每次复习时长（分钟）</Label>
