@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui';
-import { Button } from '@/components/ui';
-import { PillButton } from '@/components/ui/PillButton';
+import { StartButton } from '@/components/ui/StartButton';
 import { Dialog, DialogContent } from '@/components/ui';
 import { Plus } from 'lucide-react';
 import { KnowledgeList } from '@/components/knowledge/KnowledgeList';
@@ -71,10 +70,9 @@ export default function KnowledgePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">知识点管理</h1>
-        <PillButton onClick={() => setShowForm(true)} >
-          <Plus size={15} />
+        <StartButton onClick={() => setShowForm(true)} size="default">
           添加知识点
-        </PillButton>
+        </StartButton>
       </div>
 
       <Tabs defaultValue="review">

@@ -3,8 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button, Input, Label, Progress, Badge } from '@/components/ui';
 import { Card, CardContent } from '@/components/ui';
-import { PillButton } from '@/components/ui/PillButton';
 import { ReviewPlanDialog } from '@/components/knowledge/ReviewPlanDialog';
+import { StartButton } from '@/components/ui/StartButton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
 import { Plus, Trash2, Archive, ChevronUp, ChevronDown, History, Trophy, BookOpen, Sparkles, AlertTriangle, ArrowRight, Pencil, Check, X, Brain } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -166,7 +166,7 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-bold">学习项目</h1>
           <p className="text-sm text-muted-foreground mt-1">{activeProjects.length} 个项目进行中</p>
         </div>
-        <PillButton onClick={() => setShowForm(true)} ><Plus size={15} /> 添加项目</PillButton>
+        <StartButton onClick={() => setShowForm(true)} size="default">添加项目</StartButton>
       </div>
 
       {/* Quick links to knowledge & errors (mobile) */}
@@ -661,7 +661,7 @@ function CollectionsSection({ personaId, projects }: { personaId?: string; proje
           <h2 className="text-lg font-bold">项目合集</h2>
           <p className="text-sm text-muted-foreground">{collections.length} 个合集</p>
         </div>
-        <PillButton onClick={() => setShowForm(true)} ><Plus size={15} /> 添加合集</PillButton>
+        <StartButton onClick={() => setShowForm(true)} size="default" variant="outline">添加合集</StartButton>
       </div>
 
       <div className="space-y-3">

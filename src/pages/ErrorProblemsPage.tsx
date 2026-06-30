@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, Badge, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
-import { PillButton } from '@/components/ui/PillButton';
+import { StartButton } from '@/components/ui/StartButton';
 import { Plus, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { usePersonaStore } from '@/stores/personaStore';
 import { useSubjectStore } from '@/stores/subjectStore';
@@ -76,9 +76,9 @@ export default function ErrorProblemsPage() {
             {dueCount > 0 ? `${dueCount} 道错题等待重做` : '暂无待处理的错题'}
           </p>
         </div>
-        <PillButton onClick={() => setShowForm(true)} >
-          <Plus size={15} /> 添加错题
-        </PillButton>
+        <StartButton onClick={() => setShowForm(true)} size="default">
+          添加错题
+        </StartButton>
       </div>
 
       <Tabs defaultValue="list">
