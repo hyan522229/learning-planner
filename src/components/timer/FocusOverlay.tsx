@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerStore } from '@/stores/timerStore';
-import { useBlockStore } from '@/stores/blockStore';
 import { useUIStore } from '@/stores/uiStore';
 import { TimerRing } from './TimerRing';
 import { motion } from 'motion/react';
@@ -41,62 +40,68 @@ export function FocusOverlay() {
   const totalMin = Math.floor(totalSeconds / 60);
   const totalSec = totalSeconds % 60;
 
+  const ringSize = isMobile ? 200 : 320;
+  const ringWidth = isMobile ? 10 : 16;
+
   return (
     <div
-      className="fixed inset-0 z-50 bg-background flex items-center justify-center"
+      className="fixed inset-0 z-50 bg-background flex items-center justify-center overflow-hidden"
       onClick={() => { if (isMobile) setFocusMode(false); }}
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="text-center flex flex-col items-center gap-6"
-        style={isMobile && landscape ? { transform: 'rotate(90deg)' } : undefined}
+        className="flex flex-col items-center gap-5 select-none"
+        style={isMobile && landscape ? {
+          transform: 'rotate(90deg)',
+          width: '100vh',
+          height: '100vw',
+          justifyContent: 'center',
+        } : {}}
       >
         {/* Ring + time */}
         <div className="relative">
-          <TimerRing progress={progress} size={isMobile ? 240 : 320} strokeWidth={isMobile ? 12 : 16} />
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-            <motion.div className="text-5xl sm:text-7xl font-bold tabular-nums tracking-wider">
+          <TimerRing progress={progress} size={ringSize} strokeWidth={ringWidth} />
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+            <motion.div
+              className="font-bold tabular-nums tracking-wider"
+              style={{ fontSize: isMobile ? '2.5rem' : '4.5rem' }}
+            >
               {timeStr}
             </motion.div>
             {blockName && (
-              <div className="text-xs text-muted-foreground max-w-[200px] truncate">{blockName}</div>
+              <div className="text-xs text-muted-foreground max-w-[160px] truncate">{blockName}</div>
             )}
           </div>
         </div>
 
-        {/* Time details */}
-        <div className="text-sm text-muted-foreground space-x-3">
+        {/* Elapsed / Total */}
+        <div className="text-sm text-muted-foreground space-x-2">
           <span>已过 {String(elapsedMin).padStart(2, '0')}:{String(elapsedSec).padStart(2, '0')}</span>
-          <span>·</span>
-          <span>总计 {String(totalMin).padStart(2, '0')}:{String(totalSec).padStart(2, '0')}</span>
+          <span>/</span>
+          <span>{String(totalMin).padStart(2, '0')}:{String(totalSec).padStart(2, '0')}</span>
         </div>
 
-        {/* Status */}
-        <p className="text-sm text-muted-foreground">
-          {phase === 'running' ? '专注中...' : phase === 'paused' ? '已暂停' : ''}
-        </p>
-
-        {/* Controls */}
-        <div className="flex items-center gap-4">
+        {/* Buttons */}
+        <div className="flex items-center gap-3">
           {isMobile && (
             <button
               onClick={(e) => { e.stopPropagation(); setLandscape(!landscape); }}
-              className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground"
+              className="p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors"
             >
-              <RotateCw size={20} />
+              <RotateCw size={20} className="text-muted-foreground" />
             </button>
           )}
           <button
             onClick={(e) => { e.stopPropagation(); setFocusMode(false); }}
-            className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground"
+            className="p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors"
           >
-            <X size={24} />
+            <X size={22} className="text-muted-foreground" />
           </button>
         </div>
 
-        <p className="text-xs text-muted-foreground/50">
-          {isMobile ? '点击屏幕退出专注模式' : '按 Esc 退出专注模式'}
+        <p className="text-xs text-muted-foreground/40">
+          {isMobile ? '点屏幕退出' : 'Esc 退出'}
         </p>
       </motion.div>
     </div>
