@@ -13,6 +13,15 @@ interface Props {
 
 const CUMULATIVE_DAYS = [1, 3, 7, 14, 29, 59, 119, 239, 479, 844];
 
+function formatDay(d: number): string {
+  if (d < 30) return `第${d}天`;
+  const years = Math.floor(d / 365);
+  const months = Math.round((d % 365) / 30);
+  if (years > 0 && months > 0) return `${years}年${months}个月`;
+  if (years > 0) return `${years}年`;
+  return `${Math.round(d / 30)}个月`;
+}
+
 export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defaultDuration = 10 }: Props) {
   const [checked, setChecked] = useState<boolean[]>(
     Array.from({ length: 10 }, (_, i) => i >= defaultStage)
@@ -66,7 +75,7 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
                   />
                   <span className="flex-1 font-medium">R{i + 1}</span>
                   <span className="text-[10px] text-muted-foreground">
-                    第{CUMULATIVE_DAYS[i]}天
+                    {formatDay(CUMULATIVE_DAYS[i])}
                   </span>
                 </label>
               );
@@ -74,7 +83,7 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
           </div>
           <div className="text-xs text-muted-foreground">
             选中 {checked.filter(Boolean).length} 个阶段
-            {firstChecked >= 0 && <>，从第{CUMULATIVE_DAYS[firstChecked]}天 (R{firstChecked + 1}) 开始</>}
+            {firstChecked >= 0 && <>，从{formatDay(CUMULATIVE_DAYS[firstChecked])} (R{firstChecked + 1}) 开始</>}
           </div>
           <div className="space-y-2">
             <Label>每次复习时长（分钟）</Label>
