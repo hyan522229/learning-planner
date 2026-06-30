@@ -132,9 +132,13 @@ export default function ProjectsPage() {
   const handleUpdateProgress = async () => {
     if (!updateProjectId) return;
     const amount = Number(updateAmount);
-    if (amount <= 0) return;
+    if (amount <= 0) {
+      setUpdateAmount('1');
+      return;
+    }
     await updateProgress(updateProjectId, amount, Number(updateMinutes) || 45);
     setUpdateProjectId(null);
+    setUpdateAmount('0');
   };
 
   const handleShowLogs = async (projectId: string) => {
@@ -546,7 +550,7 @@ export default function ProjectsPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setUpdateProjectId(null)}>取消</Button>
-              <Button onClick={handleUpdateProgress} disabled={!updateAmount || Number(updateAmount) <= 0}>确认更新</Button>
+              <Button onClick={handleUpdateProgress}>确认更新</Button>
             </div>
           </div>
         </DialogContent>
