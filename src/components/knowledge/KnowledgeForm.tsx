@@ -22,8 +22,7 @@ export function KnowledgeForm({ onClose }: Props) {
   const activePersonaId = usePersonaStore(s => s.activePersonaId);
   const subjects = useSubjectStore(s => s.subjects);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!name.trim() || !subjectId || !activePersonaId) return;
     await addKnowledge({
       personaId: activePersonaId,
@@ -37,7 +36,7 @@ export function KnowledgeForm({ onClose }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <div>
       <Card>
         <CardHeader>
           <CardTitle>添加知识点</CardTitle>
@@ -114,7 +113,7 @@ export function KnowledgeForm({ onClose }: Props) {
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>取消</Button>
-          <Button type="submit">添加</Button>
+          <Button onClick={handleSubmit}>添加</Button>
         </CardFooter>
       </Card>
       <ReviewPlanDialog
@@ -128,6 +127,6 @@ export function KnowledgeForm({ onClose }: Props) {
           setShowPlan(false);
         }}
       />
-    </form>
+    </div>
   );
 }
