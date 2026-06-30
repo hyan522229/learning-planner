@@ -7,7 +7,7 @@ import { motion } from 'motion/react';
 import { X, RotateCw } from 'lucide-react';
 
 export function FocusOverlay() {
-  const { phase, progress, timeStr } = useTimer();
+  const { phase, timeStr } = useTimer();
   const totalSeconds = useTimerStore(s => s.totalSeconds);
   const remainingSeconds = useTimerStore(s => s.remainingSeconds);
   const currentBlockId = useTimerStore(s => s.currentBlockId);
@@ -37,71 +37,63 @@ export function FocusOverlay() {
   const elapsed = totalSeconds - remainingSeconds;
   const elapsedMin = Math.floor(elapsed / 60);
   const elapsedSec = elapsed % 60;
-  const totalMin = Math.floor(totalSeconds / 60);
-  const totalSec = totalSeconds % 60;
 
-  const ringSize = isMobile ? 200 : 320;
-  const ringWidth = isMobile ? 10 : 16;
+  const progress = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0;
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-background flex items-center justify-center overflow-hidden"
-      onClick={() => { if (isMobile) setFocusMode(false); }}
-    >
+    <div className="fixed inset-0 z-50 bg-background flex items-center justify-center overflow-hidden">
+      {/* Close button — top right, always clickable */}
+      <button
+        onClick={() => setFocusMode(false)}
+        className="absolute top-4 right-4 z-10 p-3 rounded-full bg-muted/60 hover:bg-muted active:scale-90 transition-all"
+      >
+        <X size={24} />
+      </button>
+
+      {/* Rotate button — top left on mobile */}
+      {isMobile && (
+        <button
+          onClick={() => setLandscape(l => !l)}
+          className="absolute top-4 left-4 z-10 p-3 rounded-full bg-muted/60 hover:bg-muted active:scale-90 transition-all"
+        >
+          <RotateCw size={22} />
+        </button>
+      )}
+
+      {/* Main content */}
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="flex flex-col items-center gap-5 select-none"
+        className="flex flex-col items-center justify-center gap-4 select-none"
         style={isMobile && landscape ? {
           transform: 'rotate(90deg)',
           width: '100vh',
           height: '100vw',
-          justifyContent: 'center',
-        } : {}}
+          maxWidth: '100vh',
+          maxHeight: '100vw',
+        } : { width: '100%', maxWidth: '400px' }}
       >
         {/* Ring + time */}
         <div className="relative">
-          <TimerRing progress={progress} size={ringSize} strokeWidth={ringWidth} />
+          <TimerRing progress={progress} size={isMobile && landscape ? 280 : 320} strokeWidth={isMobile && landscape ? 14 : 16} />
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-            <motion.div
-              className="font-bold tabular-nums tracking-wider"
-              style={{ fontSize: isMobile ? '2.5rem' : '4.5rem' }}
-            >
+            <motion.div className="text-5xl sm:text-7xl font-bold tabular-nums tracking-wide">
               {timeStr}
             </motion.div>
             {blockName && (
-              <div className="text-xs text-muted-foreground max-w-[160px] truncate">{blockName}</div>
+              <div className="text-xs text-muted-foreground max-w-[180px] truncate px-2">{blockName}</div>
             )}
           </div>
         </div>
 
-        {/* Elapsed / Total */}
-        <div className="text-sm text-muted-foreground space-x-2">
-          <span>已过 {String(elapsedMin).padStart(2, '0')}:{String(elapsedSec).padStart(2, '0')}</span>
-          <span>/</span>
-          <span>{String(totalMin).padStart(2, '0')}:{String(totalSec).padStart(2, '0')}</span>
+        {/* Elapsed time */}
+        <div className="text-sm text-muted-foreground">
+          已过 {String(elapsedMin).padStart(2, '0')}:{String(elapsedSec).padStart(2, '0')}
         </div>
 
-        {/* Buttons */}
-        <div className="flex items-center gap-3">
-          {isMobile && (
-            <button
-              onClick={(e) => { e.stopPropagation(); setLandscape(!landscape); }}
-              className="p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors"
-            >
-              <RotateCw size={20} className="text-muted-foreground" />
-            </button>
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); setFocusMode(false); }}
-            className="p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors"
-          >
-            <X size={22} className="text-muted-foreground" />
-          </button>
-        </div>
-
-        <p className="text-xs text-muted-foreground/40">
-          {isMobile ? '点屏幕退出' : 'Esc 退出'}
+        {/* Status */}
+        <p className="text-xs text-muted-foreground/60">
+          {phase === 'running' ? '专注中' : phase === 'paused' ? '已暂停' : ''}
         </p>
       </motion.div>
     </div>
