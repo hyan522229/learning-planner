@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Button, Input, Label, Progress, Badge } from '@/components/ui';
 import { Card, CardContent } from '@/components/ui';
 import { PillButton } from '@/components/ui/PillButton';
+import { ReviewPlanDialog } from '@/components/knowledge/ReviewPlanDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
 import { Plus, Trash2, Archive, ChevronUp, ChevronDown, History, Trophy, BookOpen, Sparkles, AlertTriangle, ArrowRight, Pencil, Check, X, Brain } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -57,6 +58,7 @@ export default function ProjectsPage() {
   const [logProjectId, setLogProjectId] = useState<string | null>(null);
   const [renameProjectId, setRenameProjectId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [reviewPlanProject, setReviewPlanProject] = useState<any>(null);
 
   const activePersonaId = usePersonaStore(s => s.activePersonaId);
   const subjects = useSubjectStore(s => s.subjects);
@@ -105,17 +107,8 @@ export default function ProjectsPage() {
     setShowForm(false);
   };
 
-  const handleAddToReviewEngine = async (project: any) => {
-    if (!activePersonaId) return;
-    const sid = project.subjectId || subjects[0]?.id;
-    if (!sid) return;
-    await addKnowledgePoint({
-      personaId: activePersonaId,
-      subjectId: sid,
-      name: project.name,
-      studyDate: Date.now(),
-    });
-    alert('已加入复习引擎');
+  const handleAddToReviewEngine = (project: any) => {
+    setReviewPlanProject(project);
   };
 
   const handleRenameProject = async (id: string) => {
@@ -584,6 +577,27 @@ export default function ProjectsPage() {
 
       {/* ── Project Collections ── */}
       <CollectionsSection personaId={activePersonaId ?? undefined} projects={activeProjects} />
+
+      {/* Review plan dialog */}
+      <ReviewPlanDialog
+        open={!!reviewPlanProject}
+        onClose={() => setReviewPlanProject(null)}
+        onSave={async (data) => {
+          const p = reviewPlanProject;
+          if (!p || !activePersonaId) return;
+          const sid = p.subjectId || subjects[0]?.id;
+          if (!sid) return;
+          await addKnowledgePoint({
+            personaId: activePersonaId,
+            subjectId: sid,
+            name: p.name,
+            studyDate: Date.now(),
+            initialStage: data.initialStage,
+            reviewDurationMinutes: data.reviewDurationMinutes,
+          });
+          setReviewPlanProject(null);
+        }}
+      />
     </div>
   );
 }

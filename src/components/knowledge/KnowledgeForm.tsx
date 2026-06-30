@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui';
+import { ReviewPlanDialog } from './ReviewPlanDialog';
 import { useKnowledgeStore } from '@/stores/knowledgeStore';
 import { useSubjectStore } from '@/stores/subjectStore';
 import { usePersonaStore } from '@/stores/personaStore';
@@ -16,6 +17,7 @@ export function KnowledgeForm({ onClose }: Props) {
   const [studyDate, setStudyDate] = useState(formatDate(Date.now(), 'yyyy-MM-dd'));
   const [reviewDuration, setReviewDuration] = useState(10);
   const [initialStage, setInitialStage] = useState(0);
+  const [showPlan, setShowPlan] = useState(false);
   const addKnowledge = useKnowledgeStore(s => s.addKnowledgePoint);
   const activePersonaId = usePersonaStore(s => s.activePersonaId);
   const subjects = useSubjectStore(s => s.subjects);
@@ -104,12 +106,28 @@ export function KnowledgeForm({ onClose }: Props) {
             />
             <p className="text-[11px] text-muted-foreground">后续可在知识点详情中调整</p>
           </div>
+          <div className="space-y-2">
+            <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setShowPlan(true)}>
+              设置复习计划
+            </Button>
+          </div>
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>取消</Button>
           <Button type="submit">添加</Button>
         </CardFooter>
       </Card>
+      <ReviewPlanDialog
+        open={showPlan}
+        onClose={() => setShowPlan(false)}
+        defaultStage={initialStage}
+        defaultDuration={reviewDuration}
+        onSave={(data) => {
+          setInitialStage(data.initialStage);
+          setReviewDuration(data.reviewDurationMinutes);
+          setShowPlan(false);
+        }}
+      />
     </form>
   );
 }
