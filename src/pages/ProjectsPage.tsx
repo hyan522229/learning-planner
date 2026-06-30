@@ -546,7 +546,7 @@ export default function ProjectsPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setUpdateProjectId(null)}>取消</Button>
-              <Button onClick={handleUpdateProgress}>确认更新</Button>
+              <Button onClick={handleUpdateProgress} disabled={!updateAmount || Number(updateAmount) <= 0}>确认更新</Button>
             </div>
           </div>
         </DialogContent>
