@@ -54,7 +54,6 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
           <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
             {Array.from({ length: 10 }, (_, i) => {
               const interval = REVIEW_INTERVALS[i];
-              const hasGap = i > firstChecked && !checked.slice(firstChecked, i).every(Boolean);
               return (
                 <label
                   key={i}
@@ -63,7 +62,6 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
                     checked[i]
                       ? 'bg-blue-50 border-blue-400 text-blue-800 dark:bg-blue-950 dark:border-blue-600 dark:text-blue-200'
                       : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600',
-                    hasGap && 'opacity-40 pointer-events-none',
                   )}
                 >
                   <input
