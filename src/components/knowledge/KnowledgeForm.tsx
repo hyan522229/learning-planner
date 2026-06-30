@@ -113,7 +113,13 @@ export function KnowledgeForm({ onClose }: Props) {
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>取消</Button>
-          <Button onClick={handleSubmit}>添加</Button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium h-9 px-4 py-2 bg-primary text-primary-foreground shadow-sm shadow-black/5 hover:bg-primary/90 transition-colors"
+          >
+            添加
+          </button>
         </CardFooter>
       </Card>
       <ReviewPlanDialog
