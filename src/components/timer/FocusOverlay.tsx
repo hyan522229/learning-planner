@@ -131,11 +131,11 @@ export function FocusOverlay() {
 
         {/* Time adjustment */}
         <div className="flex items-center gap-3">
-          <button onClick={shorten} className="p-2.5 rounded-full bg-muted/50 active:scale-90 transition-all">
+          <button onClick={() => shorten(5)} className="p-2.5 rounded-full bg-muted/50 active:scale-90 transition-all">
             <Minus size={18} />
           </button>
           <span className="text-xs text-muted-foreground w-10 text-center">5min</span>
-          <button onClick={extend} className="p-2.5 rounded-full bg-muted/50 active:scale-90 transition-all">
+          <button onClick={() => extend(5)} className="p-2.5 rounded-full bg-muted/50 active:scale-90 transition-all">
             <Plus size={18} />
           </button>
         </div>
