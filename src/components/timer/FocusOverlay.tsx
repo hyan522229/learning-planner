@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTimer } from '@/hooks/useTimer';
 import { useTimerStore } from '@/stores/timerStore';
 import { useUIStore } from '@/stores/uiStore';
 import { TimerRing } from './TimerRing';
 import { motion } from 'motion/react';
-import { X, RotateCw } from 'lucide-react';
+import { X, RotateCw, Plus, Minus } from 'lucide-react';
 
 export function FocusOverlay() {
-  const { phase, timeStr } = useTimer();
+  const { phase, timeStr, extend, shorten } = useTimer();
   const totalSeconds = useTimerStore(s => s.totalSeconds);
   const remainingSeconds = useTimerStore(s => s.remainingSeconds);
   const currentBlockId = useTimerStore(s => s.currentBlockId);
@@ -26,75 +26,121 @@ export function FocusOverlay() {
     }
   }, [currentBlockId]);
 
+  // Mobile: enter fullscreen + lock landscape when entering focus mode
+  useEffect(() => {
+    if (isMobile) {
+      const goFull = async () => {
+        try {
+          if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+            await document.documentElement.requestFullscreen();
+          }
+          // Try locking orientation (Android Chrome)
+          try { await (screen.orientation as any)?.lock?.('landscape'); } catch {}
+        } catch {}
+      };
+      goFull();
+    }
+    return () => {
+      if (isMobile && document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+      try { (screen.orientation as any)?.unlock?.(); } catch {}
+    };
+  }, [isMobile]);
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setFocusMode(false);
+      if (e.key === 'Escape') handleClose();
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    try { (screen.orientation as any)?.unlock?.(); } catch {}
+    setFocusMode(false);
   }, [setFocusMode]);
+
+  const handleToggleOrientation = useCallback(async () => {
+    setLandscape(l => !l);
+    if (!landscape) {
+      // Going landscape: try real orientation lock
+      try {
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+        try { await (screen.orientation as any)?.lock?.('landscape'); } catch {}
+      } catch {}
+    } else {
+      // Going portrait: unlock
+      try { (screen.orientation as any)?.unlock?.(); } catch {}
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    }
+  }, [landscape]);
 
   const elapsed = totalSeconds - remainingSeconds;
   const elapsedMin = Math.floor(elapsed / 60);
   const elapsedSec = elapsed % 60;
-
   const progress = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0;
+  const ringSize = isMobile && landscape ? 260 : 320;
+  const ringStroke = isMobile && landscape ? 12 : 16;
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex items-center justify-center overflow-hidden">
-      {/* Close button — top right, always clickable */}
-      <button
-        onClick={() => setFocusMode(false)}
-        className="absolute top-4 right-4 z-10 p-3 rounded-full bg-muted/60 hover:bg-muted active:scale-90 transition-all"
-      >
-        <X size={24} />
-      </button>
-
-      {/* Rotate button — top left on mobile */}
-      {isMobile && (
-        <button
-          onClick={() => setLandscape(l => !l)}
-          className="absolute top-4 left-4 z-10 p-3 rounded-full bg-muted/60 hover:bg-muted active:scale-90 transition-all"
-        >
-          <RotateCw size={22} />
+      {/* Top row buttons */}
+      <div className="absolute top-4 left-4 right-4 z-10 flex justify-between pointer-events-none">
+        <div className="flex gap-2 pointer-events-auto">
+          <button onClick={handleToggleOrientation} className="p-2.5 rounded-full bg-muted/60 active:scale-90 transition-all">
+            <RotateCw size={20} />
+          </button>
+        </div>
+        <button onClick={handleClose} className="p-2.5 rounded-full bg-muted/60 active:scale-90 transition-all pointer-events-auto">
+          <X size={22} />
         </button>
-      )}
+      </div>
 
-      {/* Main content */}
+      {/* Main content — rotated on mobile landscape */}
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="flex flex-col items-center justify-center gap-4 select-none"
+        className="flex flex-col items-center justify-center gap-5 select-none"
         style={isMobile && landscape ? {
           transform: 'rotate(90deg)',
           width: '100vh',
           height: '100vw',
-          maxWidth: '100vh',
-          maxHeight: '100vw',
-        } : { width: '100%', maxWidth: '400px' }}
+        } : { width: '100%' }}
       >
         {/* Ring + time */}
         <div className="relative">
-          <TimerRing progress={progress} size={isMobile && landscape ? 280 : 320} strokeWidth={isMobile && landscape ? 14 : 16} />
+          <TimerRing progress={progress} size={ringSize} strokeWidth={ringStroke} />
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-            <motion.div className="text-5xl sm:text-7xl font-bold tabular-nums tracking-wide">
+            <div className="text-5xl sm:text-7xl font-bold tabular-nums tracking-wide">
               {timeStr}
-            </motion.div>
+            </div>
             {blockName && (
               <div className="text-xs text-muted-foreground max-w-[180px] truncate px-2">{blockName}</div>
             )}
           </div>
         </div>
 
-        {/* Elapsed time */}
+        {/* Elapsed */}
         <div className="text-sm text-muted-foreground">
           已过 {String(elapsedMin).padStart(2, '0')}:{String(elapsedSec).padStart(2, '0')}
         </div>
 
-        {/* Status */}
-        <p className="text-xs text-muted-foreground/60">
-          {phase === 'running' ? '专注中' : phase === 'paused' ? '已暂停' : ''}
-        </p>
+        {/* Time adjustment */}
+        <div className="flex items-center gap-3">
+          <button onClick={shorten} className="p-2.5 rounded-full bg-muted/50 active:scale-90 transition-all">
+            <Minus size={18} />
+          </button>
+          <span className="text-xs text-muted-foreground w-10 text-center">5min</span>
+          <button onClick={extend} className="p-2.5 rounded-full bg-muted/50 active:scale-90 transition-all">
+            <Plus size={18} />
+          </button>
+        </div>
+
+        <p className="text-xs text-muted-foreground/40">{phase === 'running' ? '专注中' : '已暂停'}</p>
       </motion.div>
     </div>
   );
