@@ -114,3 +114,9 @@ export const useTimerStore = create<TimerState & TimerActions>((set) => ({
     set(initialState);
   },
 }));
+
+// Auto-manage interval on external phase changes (e.g. sessionStorage restore)
+useTimerStore.subscribe((s, prev) => {
+  if (s.phase === 'running' && prev?.phase !== 'running') startTicking();
+  if (s.phase !== 'running' && prev?.phase === 'running') stopTicking();
+});
