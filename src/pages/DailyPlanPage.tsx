@@ -33,6 +33,7 @@ export default function DailyPlanPage() {
   const { todayBlocks, fullPlanOutput, warnings, generating, generateTodayPlan, loadTodayPlan } = useDailyPlanStore();
   const settings = useSettingsStore(s => s.settings);
   const updateBlockStatus = useBlockStore(s => s.updateBlockStatus);
+  const updateProjectProgress = useProjectStore(s => s.updateProgress);
   const startTimer = useTimerStore(s => s.start);
 
   const [selectedDate, setSelectedDate] = useState(() => startOfDayEpoch());
@@ -74,8 +75,27 @@ export default function DailyPlanPage() {
     navigate('/timer');
   };
 
+  const [completeBlockId, setCompleteBlockId] = useState<string | null>(null);
+  const [completeAmount, setCompleteAmount] = useState('0');
+  const [completeMinutes, setCompleteMinutes] = useState('45');
+
   const handleComplete = (block: Block) => {
-    updateBlockStatus(block.id, 'completed', block.estimatedDurationMinutes);
+    setCompleteBlockId(block.id);
+    setCompleteAmount('0');
+    setCompleteMinutes(String(block.estimatedDurationMinutes || 45));
+  };
+
+  const handleConfirmComplete = async () => {
+    if (!completeBlockId) return;
+    const amount = Number(completeAmount);
+    const mins = Number(completeMinutes) || 45;
+    await updateBlockStatus(completeBlockId, 'completed', mins);
+    // Update project progress if applicable
+    const block = displayBlocks.find(b => b.id === completeBlockId);
+    if (block?.projectId && amount > 0) {
+      await updateProjectProgress(block.projectId, amount, mins);
+    }
+    setCompleteBlockId(null);
   };
 
   const handleSkip = (block: Block) => {
@@ -324,6 +344,27 @@ export default function DailyPlanPage() {
           </p>
         </div>
       )}
+
+      {/* Complete block progress dialog */}
+      <Dialog open={!!completeBlockId} onOpenChange={(v) => { if (!v) setCompleteBlockId(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>完成学习块</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>完成了多少？</Label>
+              <Input type="number" value={completeAmount} onChange={e => setCompleteAmount(e.target.value)} min="0" autoFocus />
+            </div>
+            <div className="space-y-2">
+              <Label>花了多长时间（分钟）</Label>
+              <Input type="number" value={completeMinutes} onChange={e => setCompleteMinutes(e.target.value)} min="1" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCompleteBlockId(null)}>取消</Button>
+              <Button onClick={handleConfirmComplete}>确认完成</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Block Dialog */}
       <Dialog open={showAddBlock} onOpenChange={setShowAddBlock}>
