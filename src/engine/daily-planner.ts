@@ -4,7 +4,7 @@ import { startOfDayEpoch } from '@/utils/date';
 import { isTimeInPast } from '@/utils/time';
 import { REVIEW_BLOCK_MINUTES, ERROR_BLOCK_MINUTES, REVIEW_INTERVALS } from './constants';
 import { DAY_MS } from './ebbinghaus';
-import { useCollectionStore } from '@/stores/collectionStore';
+import { useCollectionStore, getCycleActiveProjectId } from '@/stores/collectionStore';
 import type { Block, DailyPlan, Environment, AppSettings, Project } from '@/types';
 
 export interface PlanInput {
@@ -231,7 +231,7 @@ async function buildDayBlocks(
     .toArray();
   const dueErrors = allDueErrors;
 
-  const mandatoryMinutes = dueReviews.reduce((sum, r) => sum + (r.reviewDurationMinutes || REVIEW_BLOCK_MINUTES), 0)
+  const mandatoryMinutes = dueReviews.reduce((sum, r) => sum + ((r.reviewDurationMinutes ?? 0) > 0 ? r.reviewDurationMinutes : REVIEW_BLOCK_MINUTES), 0)
     + dueErrors.length * ERROR_BLOCK_MINUTES;
 
   // Calculate available time from environment slots
@@ -272,18 +272,42 @@ async function buildDayBlocks(
     .toArray();
 
   // Apply collection rules: only include projects that collections deem active
-  if (!projects) {
-    const collectionActiveIds = await useCollectionStore.getState().getActiveProjectIds(personaId);
-    if (collectionActiveIds.size > 0) {
-      // Check if any project is in a collection — if so, filter to only collection-active projects
-      const allCollections = await db.projectCollections.where({ personaId }).toArray();
-      const allManagedIds = new Set(allCollections.flatMap(c => c.projectIds));
-      if (allManagedIds.size > 0) {
-        // Projects managed by collections: only include if active
-        // Projects NOT in any collection: always include
-        allProjects = allProjects.filter(p =>
-          !allManagedIds.has(p.id) || collectionActiveIds.has(p.id)
-        );
+  const allCollections = await db.projectCollections.where({ personaId }).toArray();
+  const collectionActiveIds = await useCollectionStore.getState().getActiveProjectIds(personaId, date);
+  if (collectionActiveIds.size > 0) {
+    const allManagedIds = new Set(allCollections.flatMap(c => c.projectIds));
+    if (allManagedIds.size > 0) {
+      // Projects managed by collections: only include if active
+      // Projects NOT in any collection: always include
+      allProjects = allProjects.filter(p =>
+        !allManagedIds.has(p.id) || collectionActiveIds.has(p.id)
+      );
+    }
+  }
+
+  // Build collection block limit map for all collection modes (cycle/single/dual)
+  const collectionBlockLimit = new Map<string, number>();
+  for (const col of allCollections) {
+    if (!col.dailyBlockLimit || col.dailyBlockLimit <= 0) continue;
+    if (col.projectIds.length === 0) continue;
+
+    const colProjects = (await db.projects.bulkGet(col.projectIds))
+      .filter(p => p && p.status !== 'completed')
+      .map(p => p!.id);
+
+    if (col.mode === 'cycle') {
+      const activeId = getCycleActiveProjectId(col, date, colProjects);
+      if (activeId) {
+        collectionBlockLimit.set(activeId, col.dailyBlockLimit);
+      }
+    } else if (col.mode === 'single') {
+      if (colProjects.length > 0) {
+        collectionBlockLimit.set(colProjects[0], col.dailyBlockLimit);
+      }
+    } else {
+      // dual mode: first two non-completed
+      for (let i = 0; i < Math.min(2, colProjects.length); i++) {
+        collectionBlockLimit.set(colProjects[i], col.dailyBlockLimit);
       }
     }
   }
@@ -322,7 +346,7 @@ async function buildDayBlocks(
     // ── Priority 1: Reviews (highest priority) ──
     while (reviewCursor < reviewQueue.length && cursorMin < slotStartMin + slotMinutes) {
       const r = reviewQueue[reviewCursor];
-      const dur = r.reviewDurationMinutes || REVIEW_BLOCK_MINUTES;
+      const dur = (r.reviewDurationMinutes ?? 0) > 0 ? r.reviewDurationMinutes : REVIEW_BLOCK_MINUTES;
       // Allow 2 min overflow at slot end to keep block complete
       if (cursorMin + dur > slotStartMin + slotMinutes + 2) break;
       reviewCursor++;
@@ -388,10 +412,11 @@ async function buildDayBlocks(
         const projRemaining = remaining.get(proj.id) || 0;
         if (projRemaining <= 0) continue;
 
-        // Enforce daily limit
-        if (proj.dailyBlockLimit > 0) {
+        // Enforce daily limit (collection limit overrides project limit)
+        const effectiveLimit = collectionBlockLimit.get(proj.id) ?? proj.dailyBlockLimit;
+        if (effectiveLimit > 0) {
           const currentCount = projectBlockCounts.get(proj.id) || 0;
-          if (currentCount >= proj.dailyBlockLimit) continue;
+          if (currentCount >= effectiveLimit) continue;
         }
 
         // Use FULL block duration — never truncated

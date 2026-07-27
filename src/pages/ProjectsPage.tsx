@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button, Input, Label, Progress, Badge } from '@/components/ui';
@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui';
 import { ReviewPlanDialog } from '@/components/knowledge/ReviewPlanDialog';
 import { StartButton } from '@/components/ui/StartButton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
-import { Plus, Trash2, Archive, ChevronUp, ChevronDown, History, Trophy, BookOpen, Sparkles, AlertTriangle, ArrowRight, Pencil, Check, X, Brain } from 'lucide-react';
+import { Plus, Trash2, Archive, ChevronUp, ChevronDown, History, Trophy, BookOpen, Sparkles, AlertTriangle, ArrowRight, Pencil, Check, X, Brain, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePersonaStore } from '@/stores/personaStore';
 import { useSubjectStore } from '@/stores/subjectStore';
@@ -19,6 +19,9 @@ import { PRIORITY_LABELS } from '@/engine/constants';
 import { formatDurationCompact } from '@/utils/time';
 import { formatDate } from '@/utils/date';
 import { cn } from '@/utils/cn';
+import { CollectionCard } from '@/components/collections/CollectionCard';
+import { calcCollectionProgress } from '@/components/collections/calcCollectionProgress';
+import type { CollectionProgress } from '@/components/collections/CollectionProgress';
 
 const measureLabels: Record<MeasureType, string> = {
   pages: '页', questions: '题', minutes: '分钟', words: '词', articles: '篇',
@@ -52,6 +55,7 @@ export default function ProjectsPage() {
   const [createReview, setCreateReview] = useState(false);
   const [showReviewPlan, setShowReviewPlan] = useState(false);
   const [dailyBlockLimit, setDailyBlockLimit] = useState('-1');
+  const [addToCollectionId, setAddToCollectionId] = useState<string>('');
 
   const [updateProjectId, setUpdateProjectId] = useState<string | null>(null);
   const [updateAmount, setUpdateAmount] = useState('0');
@@ -60,6 +64,13 @@ export default function ProjectsPage() {
   const [renameProjectId, setRenameProjectId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [reviewPlanProject, setReviewPlanProject] = useState<any>(null);
+
+  // Collection creation state
+  const [showCreateCollection, setShowCreateCollection] = useState(false);
+  const [colName, setColName] = useState('');
+  const [colMode, setColMode] = useState<'single' | 'dual' | 'cycle'>('single');
+  const [colCycleDays, setColCycleDays] = useState('7');
+  const [colSelectedIds, setColSelectedIds] = useState<string[]>([]);
 
   const activePersonaId = usePersonaStore(s => s.activePersonaId);
   const subjects = useSubjectStore(s => s.subjects);
@@ -72,6 +83,12 @@ export default function ProjectsPage() {
   const deleteProject = useProjectStore(s => s.deleteProject);
   const archiveProject = useProjectStore(s => s.archiveProject);
   const addKnowledgePoint = useKnowledgeStore(s => s.addKnowledgePoint);
+
+  // Collection store hooks
+  const addCollection = useCollectionStore(s => s.addCollection);
+  const updateCollection = useCollectionStore(s => s.updateCollection);
+  const deleteCollection = useCollectionStore(s => s.deleteCollection);
+  const getActiveProjectIds = useCollectionStore(s => s.getActiveProjectIds);
 
   const [logs, setLogs] = useState<ProgressLog[]>([]);
 
@@ -86,6 +103,74 @@ export default function ProjectsPage() {
     },
     [activePersonaId]
   ) ?? [];
+
+  // Live query: collections for the active persona
+  const collections = useLiveQuery(
+    async () => {
+      if (!activePersonaId) return [];
+      return db.projectCollections.where({ personaId: activePersonaId }).toArray();
+    },
+    [activePersonaId]
+  ) ?? [];
+
+  // Live query: active collection-managed project IDs
+  const [collectionActiveIds, setCollectionActiveIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!activePersonaId) { setCollectionActiveIds(new Set()); return; }
+    getActiveProjectIds(activePersonaId).then(setCollectionActiveIds);
+  }, [activePersonaId, getActiveProjectIds, collections]);
+
+  // Compute the set of all project IDs that belong to any collection
+  const allCollectionProjectIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const col of collections) {
+      for (const pid of col.projectIds) {
+        ids.add(pid);
+      }
+    }
+    return ids;
+  }, [collections]);
+
+  // Compute collection progress for each collection
+  const collectionProgressMap = useMemo(() => {
+    const map = new Map<string, CollectionProgress>();
+    for (const col of collections) {
+      const colProjects = col.projectIds
+        .map(id => projects.find(p => p.id === id))
+        .filter(Boolean);
+      map.set(col.id, calcCollectionProgress(col, colProjects));
+    }
+    return map;
+  }, [collections, projects]);
+
+  const toggleColProject = useCallback((id: string) => {
+    setColSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }, []);
+
+  const handleCreateCollection = useCallback(async () => {
+    if (!colName.trim() || !activePersonaId || colSelectedIds.length === 0) return;
+    await addCollection({
+      personaId: activePersonaId,
+      name: colName.trim(),
+      projectIds: colSelectedIds,
+      mode: colMode,
+      cycleDays: colMode === 'cycle' ? (Number(colCycleDays) || 7) : undefined as any,
+    });
+    // If cycle mode was selected, update the collection with cycleDays after creation
+    if (colMode === 'cycle') {
+      const allCols = await db.projectCollections.where({ personaId: activePersonaId }).toArray();
+      const created = allCols.find(c =>
+        c.name === colName.trim() &&
+        c.mode === 'cycle' &&
+        !collections.some(existing => existing.id === c.id)
+      );
+      if (created) {
+        await updateCollection(created.id, { cycleDays: Number(colCycleDays) || 7 });
+      }
+    }
+    setColName(''); setColSelectedIds([]); setColMode('single'); setColCycleDays('7');
+    setShowCreateCollection(false);
+  }, [colName, activePersonaId, colSelectedIds, colMode, colCycleDays, addCollection, updateCollection, collections]);
 
   const handleAdd = async () => {
     if (!name.trim() || !activePersonaId) return;
@@ -102,6 +187,17 @@ export default function ProjectsPage() {
       createReviewOnComplete: createReview && !!subjectId,
       dailyBlockLimit: Number(dailyBlockLimit),
     });
+
+    // If addToCollectionId is set, add this project to that collection
+    if (addToCollectionId) {
+      const targetCol = collections.find(c => c.id === addToCollectionId);
+      if (targetCol) {
+        await updateCollection(addToCollectionId, {
+          projectIds: [...targetCol.projectIds, projectId],
+        });
+      }
+      setAddToCollectionId('');
+    }
 
     setName(''); setMeasureType('pages'); setCategory('study'); setTotal('100'); setPriority(3);
     setSubjectId(''); setInitialProgress('0'); setInitialSpeed(''); setCreateReview(false); setDailyBlockLimit('-1');
@@ -159,6 +255,9 @@ export default function ProjectsPage() {
   const completedProjects = projects.filter(p => p.status === 'completed');
   const archivedProjects = projects.filter(p => p.status === 'archived');
 
+  // Active projects not in any collection (shown individually)
+  const standaloneActiveProjects = activeProjects.filter(p => !allCollectionProjectIds.has(p.id));
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -166,7 +265,10 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-bold">学习项目</h1>
           <p className="text-sm text-muted-foreground mt-1">{activeProjects.length} 个项目进行中</p>
         </div>
-        <StartButton onClick={() => setShowForm(true)} size="default">添加项目</StartButton>
+        <div className="flex items-center gap-2">
+          <StartButton onClick={() => setShowCreateCollection(true)} size="default" variant="outline">添加合集</StartButton>
+          <StartButton onClick={() => setShowForm(true)} size="default">添加项目</StartButton>
+        </div>
       </div>
 
       {/* Quick links to knowledge & errors (mobile) */}
@@ -183,10 +285,43 @@ export default function ProjectsPage() {
         </Link>
       </div>
 
-      {/* Active projects */}
+      {/* Project Collections */}
+      {collections.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+            <RefreshCw size={16} />
+            项目合集
+          </h2>
+          <AnimatePresence>
+            {collections.map(col => {
+              const colProjects = col.projectIds
+                .map(id => projects.find(p => p.id === id))
+                .filter(Boolean);
+              const progress = collectionProgressMap.get(col.id);
+
+              return (
+                <motion.div key={col.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }}>
+                  <CollectionCard
+                    collection={col}
+                    projects={colProjects}
+                    progress={progress}
+                    onUpdate={(id, partial) => updateCollection(id, partial)}
+                    onDelete={(id) => deleteCollection(id)}
+                  />
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* Active projects (excluding collection-managed) */}
       <div className="space-y-3">
+        {collections.length > 0 && standaloneActiveProjects.length > 0 && (
+          <h2 className="text-sm font-semibold text-muted-foreground">独立项目</h2>
+        )}
         <AnimatePresence>
-          {activeProjects.map(project => {
+          {standaloneActiveProjects.map(project => {
             const subject = subjects.find(s => s.id === project.subjectId);
             const progress = project.total > 0 ? Math.min(100, Math.round((project.completed / project.total) * 100)) : 0;
 
@@ -276,10 +411,16 @@ export default function ProjectsPage() {
         </AnimatePresence>
       </div>
 
-      {activeProjects.length === 0 && (
+      {standaloneActiveProjects.length === 0 && collections.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
           <div className="text-4xl mb-3">📋</div>
           <p className="text-sm">还没有学习项目，点击上方按钮添加</p>
+        </div>
+      )}
+
+      {standaloneActiveProjects.length === 0 && collections.length > 0 && activeProjects.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          <p className="text-sm">所有项目都在合集中管理</p>
         </div>
       )}
 
@@ -407,6 +548,21 @@ export default function ProjectsPage() {
                 onCompositionEnd={e => { composingRef.current = false; setName((e.target as HTMLInputElement).value); }}
                 autoFocus />
             </div>
+            {collections.length > 0 && (
+              <div className="space-y-2">
+                <Label>添加到合集（可选）</Label>
+                <select
+                  value={addToCollectionId}
+                  onChange={e => setAddToCollectionId(e.target.value)}
+                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm"
+                >
+                  <option value="">不添加到合集</option>
+                  {collections.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>项目类型</Label>
               <div className="flex gap-2">
@@ -535,6 +691,87 @@ export default function ProjectsPage() {
         }}
       />
 
+      {/* Create Collection Dialog */}
+      <Dialog open={showCreateCollection} onOpenChange={setShowCreateCollection}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>新建项目合集</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>合集名称</Label>
+              <Input
+                key={String(showCreateCollection)}
+                defaultValue=""
+                onChange={e => { if (!composingRef.current) setColName(e.target.value); }}
+                onCompositionStart={() => { composingRef.current = true; }}
+                onCompositionEnd={e => { composingRef.current = false; setColName((e.target as HTMLInputElement).value); }}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>项目模式</Label>
+              <div className="flex gap-2">
+                {(['single', 'dual', 'cycle'] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setColMode(m)}
+                    className={cn(
+                      'flex-1 py-2 rounded-lg border text-sm transition-all',
+                      colMode === m
+                        ? 'bg-brand-50 border-brand-300 text-brand-700 dark:bg-brand-950 dark:border-brand-700 dark:text-brand-300'
+                        : 'border-input text-muted-foreground hover:bg-muted',
+                    )}
+                  >
+                    {m === 'single' ? '单项目' : m === 'dual' ? '双项目' : '循环'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {colMode === 'cycle' && (
+              <div className="space-y-2">
+                <Label>循环天数</Label>
+                <Input
+                  type="number"
+                  value={colCycleDays}
+                  onChange={e => setColCycleDays(e.target.value)}
+                  min="1"
+                  max="365"
+                />
+                <p className="text-[10px] text-muted-foreground">每个项目轮流进行，每 {colCycleDays || '?'} 天切换一次</p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>选择项目（按顺序）</Label>
+              <div className="max-h-48 overflow-y-auto space-y-1 border rounded-lg p-2">
+                {projects.filter(p => p.status === 'active' && !allCollectionProjectIds.has(p.id)).map(p => (
+                  <label key={p.id} className="flex items-center gap-2 text-sm py-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={colSelectedIds.includes(p.id)}
+                      onChange={() => toggleColProject(p.id)}
+                      className="rounded"
+                    />
+                    {p.name}
+                    {p.status === 'completed' && <span className="text-green-500 text-xs">✓</span>}
+                  </label>
+                ))}
+                {projects.filter(p => p.status === 'active' && !allCollectionProjectIds.has(p.id)).length === 0 && (
+                  <p className="text-xs text-muted-foreground py-2">暂无可用项目（所有项目已在合集中）</p>
+                )}
+              </div>
+            </div>
+            {colSelectedIds.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                已选 {colSelectedIds.length} 个项目，按选择顺序排列
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowCreateCollection(false)}>取消</Button>
+              <Button onClick={handleCreateCollection} disabled={!colName.trim() || colSelectedIds.length === 0}>创建合集</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Update Progress Dialog */}
       <Dialog open={!!updateProjectId} onOpenChange={(v) => { if (!v) setUpdateProjectId(null); }}>
         <DialogContent className="sm:max-w-sm">
@@ -597,9 +834,6 @@ export default function ProjectsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Project Collections ── */}
-      <CollectionsSection personaId={activePersonaId ?? undefined} projects={activeProjects} />
-
       {/* Review plan dialog */}
       <ReviewPlanDialog
         open={!!reviewPlanProject}
@@ -621,170 +855,6 @@ export default function ProjectsPage() {
           setReviewPlanProject(null);
         }}
       />
-    </div>
-  );
-}
-
-// ─── Collections Section ───
-
-function CollectionsSection({ personaId, projects }: { personaId?: string; projects: any[] }) {
-  const [showForm, setShowForm] = useState(false);
-  const [colName, setColName] = useState('');
-  const [colMode, setColMode] = useState<'single' | 'dual'>('single');
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const composingRef = useRef(false);
-  const addCol = useCollectionStore(s => s.addCollection);
-  const deleteCol = useCollectionStore(s => s.deleteCollection);
-  const updateCol = useCollectionStore(s => s.updateCollection);
-
-  const collections = useLiveQuery(async () => {
-    if (!personaId) return [];
-    return db.projectCollections.where({ personaId }).toArray();
-  }, [personaId]) ?? [];
-
-  const handleAdd = async () => {
-    if (!colName.trim() || !personaId || selectedIds.length === 0) return;
-    await addCol({ personaId, name: colName.trim(), projectIds: selectedIds, mode: colMode });
-    setColName(''); setSelectedIds([]); setColMode('single'); setShowForm(false);
-  };
-
-  const toggleProject = (id: string) => {
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
-
-  const projectMap = new Map(projects.map(p => [p.id, p]));
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold">项目合集</h2>
-          <p className="text-sm text-muted-foreground">{collections.length} 个合集</p>
-        </div>
-        <StartButton onClick={() => setShowForm(true)} size="default" variant="outline">添加合集</StartButton>
-      </div>
-
-      <div className="space-y-3">
-        {collections.map(col => {
-          const colProjects = col.projectIds.map(id => projectMap.get(id)).filter(Boolean);
-          const completed = colProjects.filter((p: any) => p.status === 'completed').length;
-          const pct = colProjects.length > 0 ? Math.round((completed / colProjects.length) * 100) : 0;
-
-          return (
-            <Card key={col.id}>
-              <CardContent className="pt-4 pb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{col.name}</span>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {col.mode === 'single' ? '单项目' : '双项目'}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => updateCol(col.id, { mode: col.mode === 'single' ? 'dual' : 'single' })}
-                      className="px-2 py-0.5 text-xs rounded border hover:bg-muted transition-colors"
-                    >
-                      切换为{col.mode === 'single' ? '双' : '单'}项目
-                    </button>
-                    <button onClick={() => deleteCol(col.id)} className="p-1 text-muted-foreground hover:text-destructive">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-                <Progress value={pct} className="h-2 mb-2" />
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{completed}/{colProjects.length} 完成</span>
-                  <span>·</span>
-                  <span>{pct}%</span>
-                </div>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {colProjects.map((p: any, i: number) => (
-                    <span
-                      key={p.id}
-                      className={cn(
-                        'text-[11px] px-2 py-0.5 rounded-full',
-                        p.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                        i === 0 && col.mode === 'single' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                        (i === 0 || i === 1) && col.mode === 'dual' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                        'bg-muted text-muted-foreground',
-                      )}
-                    >
-                      {p.name}
-                      {p.status === 'completed' && ' ✓'}
-                    </span>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>新建项目合集</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>合集名称</Label>
-              <Input
-                key={String(showForm)}
-                defaultValue=""
-                onChange={e => { if (!composingRef.current) setColName(e.target.value); }}
-                onCompositionStart={() => { composingRef.current = true; }}
-                onCompositionEnd={e => { composingRef.current = false; setColName((e.target as HTMLInputElement).value); }}
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>项目模式</Label>
-              <div className="flex gap-2">
-                {(['single', 'dual'] as const).map(m => (
-                  <button
-                    key={m}
-                    onClick={() => setColMode(m)}
-                    className={cn(
-                      'flex-1 py-2 rounded-lg border text-sm transition-all',
-                      colMode === m
-                        ? 'bg-brand-50 border-brand-300 text-brand-700 dark:bg-brand-950 dark:border-brand-700 dark:text-brand-300'
-                        : 'border-input text-muted-foreground hover:bg-muted',
-                    )}
-                  >
-                    {m === 'single' ? '单项目进行' : '双项目同时'}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>选择项目（按顺序）</Label>
-              <div className="max-h-48 overflow-y-auto space-y-1 border rounded-lg p-2">
-                {projects.map(p => (
-                  <label key={p.id} className="flex items-center gap-2 text-sm py-1 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(p.id)}
-                      onChange={() => toggleProject(p.id)}
-                      className="rounded"
-                    />
-                    {p.name}
-                    {p.status === 'completed' && <span className="text-green-500 text-xs">✓</span>}
-                  </label>
-                ))}
-                {projects.length === 0 && <p className="text-xs text-muted-foreground py-2">暂无可选项目</p>}
-              </div>
-            </div>
-            {selectedIds.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                已选 {selectedIds.length} 个项目，按选择顺序排列
-              </p>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowForm(false)}>取消</Button>
-              <Button onClick={handleAdd} disabled={!colName.trim() || selectedIds.length === 0}>创建合集</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

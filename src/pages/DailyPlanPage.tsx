@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button, Input, Label } from '@/components/ui';
 import { StartButton } from '@/components/ui/StartButton';
@@ -12,6 +12,8 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useBlockStore } from '@/stores/blockStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useTimerStore } from '@/stores/timerStore';
+import { useCollectionStore } from '@/stores/collectionStore';
+import { useSubjectStore } from '@/stores/subjectStore';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db';
 import { RefreshCw, Loader2, ChevronRight, CalendarDays, CalendarRange, ChevronLeft, Plus, Minus } from 'lucide-react';
@@ -19,6 +21,7 @@ import { format, addDays } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { cn } from '@/utils/cn';
 import { startOfDayEpoch } from '@/utils/date';
+import { formatDurationCompact } from '@/utils/time';
 import type { Block, BlockType } from '@/types';
 
 const DAY_MS = 86400000;
@@ -49,6 +52,44 @@ export default function DailyPlanPage() {
     },
     [activePersonaId]
   ) ?? [];
+
+  // Collections data
+  const updateCollection = useCollectionStore(s => s.updateCollection);
+  const subjects = useSubjectStore(s => s.subjects);
+  const loadSubjects = useSubjectStore(s => s.loadSubjects);
+  const collections = useLiveQuery(
+    async () => {
+      if (!activePersonaId) return [];
+      return db.projectCollections.where({ personaId: activePersonaId }).toArray();
+    },
+    [activePersonaId]
+  ) ?? [];
+
+  useEffect(() => {
+    if (activePersonaId) {
+      loadSubjects(activePersonaId);
+    }
+  }, [activePersonaId, loadSubjects]);
+
+  const allManagedIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const col of collections) {
+      for (const pid of col.projectIds) {
+        ids.add(pid);
+      }
+    }
+    return ids;
+  }, [collections]);
+
+  const getColBadge = (col: typeof collections[number]) => {
+    const firstPid = col.projectIds[0];
+    const proj = activeProjects.find(p => p.id === firstPid);
+    if (proj?.subjectId) {
+      const sub = subjects.find(s => s.id === proj.subjectId);
+      if (sub) return { name: col.name, color: sub.color, icon: sub.icon };
+    }
+    return { name: col.name, color: '#888', icon: '' };
+  };
 
   useEffect(() => {
     if (activePersonaId) {
@@ -152,6 +193,14 @@ export default function DailyPlanPage() {
     : 0;
 
   const isToday = selectedDate === today;
+
+  const timeStats = useMemo(() => {
+    const total = displayBlocks.reduce((sum, b) => sum + b.estimatedDurationMinutes, 0);
+    const completed = displayBlocks
+      .filter(b => b.status === 'completed')
+      .reduce((sum, b) => sum + (b.actualDurationMinutes || b.estimatedDurationMinutes), 0);
+    return { total, completed };
+  }, [displayBlocks]);
 
   return (
     <div className="space-y-4">
@@ -267,14 +316,15 @@ export default function DailyPlanPage() {
       </div>
 
       {/* Per-project daily block controls */}
-      {(activeProjects.length > 0) && (() => {
-        // Include ALL active projects
-        const projectInfos = activeProjects.map(p => ({
-          projectId: p.id,
-          name: p.name,
-          limit: p.dailyBlockLimit,
-        }));
-        if (projectInfos.length === 0) return null;
+      {(activeProjects.length > 0 || collections.length > 0) && (() => {
+        // Filter out collection-managed projects
+        const projectInfos = activeProjects
+          .filter(p => !allManagedIds.has(p.id))
+          .map(p => ({
+            projectId: p.id,
+            name: p.name,
+            limit: p.dailyBlockLimit,
+          }));
 
         const limitLabel = (limit: number) => {
           if (limit === -1) return '—';
@@ -282,10 +332,66 @@ export default function DailyPlanPage() {
           return String(limit);
         };
 
+        if (projectInfos.length === 0 && collections.length === 0) return null;
+
         return (
           <div className="rounded-xl border bg-card p-4 space-y-3">
             <h3 className="text-sm font-semibold">学习块设置</h3>
             <div className="space-y-2">
+              {/* Collection rows */}
+              {collections.map(col => {
+                const badge = getColBadge(col);
+                const limit = col.dailyBlockLimit ?? -1;
+                return (
+                  <div
+                    key={col.id}
+                    className={cn(
+                      'flex items-center justify-between gap-3 py-1.5',
+                      limit === 0 && 'opacity-50',
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      {badge.icon && <span className="text-xs">{badge.icon}</span>}
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded font-medium shrink-0"
+                        style={{ backgroundColor: badge.color + '20', color: badge.color }}
+                      >
+                        合集
+                      </span>
+                      <span className="text-sm truncate">{badge.name}</span>
+                    </div>
+                    <span className={cn(
+                      'text-sm tabular-nums w-12 text-center',
+                      limit === 0 ? 'text-muted-foreground/50 line-through' : 'text-muted-foreground',
+                    )}>
+                      {limitLabel(limit)}
+                    </span>
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        onClick={() => {
+                          const next = limit === -1 ? -1 : Math.max(-1, limit - 1);
+                          updateCollection(col.id, { dailyBlockLimit: next });
+                        }}
+                        className="w-7 h-7 flex items-center justify-center rounded-md border hover:bg-muted transition-colors"
+                        title="减少"
+                      >
+                        <Minus size={13} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          const next = limit === -1 ? 0 : limit + 1;
+                          updateCollection(col.id, { dailyBlockLimit: next });
+                        }}
+                        className="w-7 h-7 flex items-center justify-center rounded-md border hover:bg-muted transition-colors"
+                        title="增加"
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {/* Standalone project rows (non-managed) */}
               {projectInfos.map(info => (
                 <div
                   key={info.projectId}
@@ -329,6 +435,28 @@ export default function DailyPlanPage() {
           </div>
         );
       })()}
+
+      {/* Time stats bar */}
+      {displayBlocks.length > 0 && (
+        <div className="rounded-lg border bg-card p-3">
+          <div className="flex items-center justify-between text-sm mb-2">
+            <span className="text-muted-foreground">今日用时</span>
+            <span className="font-medium tabular-nums">
+              {formatDurationCompact(timeStats.completed)} / {formatDurationCompact(timeStats.total)}
+            </span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-brand-500 rounded-full transition-all duration-500"
+              style={{
+                width: timeStats.total > 0
+                  ? `${Math.min(100, Math.round((timeStats.completed / timeStats.total) * 100))}%`
+                  : '0%',
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       <Timeline
         blocks={displayBlocks}

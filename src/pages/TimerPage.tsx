@@ -15,6 +15,8 @@ import { db } from '@/db';
 import { formatDurationCompact } from '@/utils/time';
 import { Play, Plus, ArrowLeft, Square } from 'lucide-react';
 
+const COMPLETION_KEY = 'timer-completion';
+
 export default function TimerPage() {
   const navigate = useNavigate();
   const [showProgress, setShowProgress] = useState(false);
@@ -60,28 +62,89 @@ export default function TimerPage() {
     [currentBlock?.projectId]
   );
 
-  // Auto-show progress dialog when timer completes with a linked project
+  // Auto-show progress dialog when timer completes, or auto-complete review/error blocks
   useEffect(() => {
     if (prevPhase.current !== 'completed' && phase === 'completed') {
-      if (currentBlock?.projectId) {
+      const elapsed = lastElapsedSeconds;
+      // Persist completion data so it survives navigation away and back
+      sessionStorage.setItem(COMPLETION_KEY, JSON.stringify({
+        blockId: currentBlockId,
+        elapsedSeconds: elapsed,
+      }));
+
+      if (currentBlock?.type === 'review' || currentBlock?.type === 'error_problem') {
+        // Auto-complete review/error blocks without showing the progress dialog
+        if (currentBlockId) {
+          updateBlockStatus(currentBlockId, 'completed', Math.round(elapsed / 60) || 1);
+        }
+        sessionStorage.setItem(COMPLETION_KEY, 'handled');
+      } else if (currentBlock?.projectId) {
+        // Show progress dialog for project-linked blocks
         setProgressAmount('');
-        // Auto-fill with elapsed time from timer (user can change)
-        setProgressDuration(String(Math.round(lastElapsedSeconds / 60) || 1));
+        setProgressDuration(String(Math.round(elapsed / 60) || 1));
         setIsAutoCompletion(true);
         setShowProgress(true);
+      } else {
+        // Other blocks without a project: mark complete, no dialog
+        if (currentBlockId) {
+          updateBlockStatus(currentBlockId, 'completed', Math.round(elapsed / 60) || 1);
+        }
+        sessionStorage.setItem(COMPLETION_KEY, 'handled');
       }
       // Force re-render so "停止铃声" button appears
       setTick(t => t + 1);
     }
-    if (phase !== 'completed') {
-      // Clean up stale audio ref when phase changes away from completed
+    if (phase === 'running') {
+      // Clean up stale audio ref only when a new timer starts running
       if (activeAudioCleanup.current) {
         activeAudioCleanup.current = null;
         setTick(t => t + 1);
       }
     }
     prevPhase.current = phase;
-  }, [phase, currentBlock?.projectId, lastElapsedSeconds]);
+  }, [phase, currentBlock?.projectId, lastElapsedSeconds, currentBlockId, currentBlock?.type]);
+
+  // Recovery effect: on mount, check sessionStorage for a pending completion
+  // that may have been stored before navigating away (e.g. timer completed,
+  // user left the page before dismissing the dialog, then came back after
+  // the timer store was reset).
+  useEffect(() => {
+    const stored = sessionStorage.getItem(COMPLETION_KEY);
+    if (!stored || stored === 'handled') return;
+
+    // If phase is already 'completed', the main phase-change effect handles it
+    if (phase === 'completed') return;
+
+    try {
+      const data = JSON.parse(stored);
+      if (!data.blockId) return;
+
+      db.blocks.get(data.blockId).then(block => {
+        if (!block) {
+          sessionStorage.setItem(COMPLETION_KEY, 'handled');
+          return;
+        }
+
+        if (block.type === 'review' || block.type === 'error_problem') {
+          // Auto-complete review / error blocks without dialog
+          updateBlockStatus(block.id, 'completed', Math.round(data.elapsedSeconds / 60) || 1);
+          sessionStorage.setItem(COMPLETION_KEY, 'handled');
+        } else if (block.projectId) {
+          // Show progress dialog for project-linked blocks
+          setProgressDuration(String(Math.round(data.elapsedSeconds / 60) || 1));
+          setIsAutoCompletion(true);
+          setShowProgress(true);
+        } else {
+          // Other blocks: mark complete, no dialog
+          updateBlockStatus(block.id, 'completed', Math.round(data.elapsedSeconds / 60) || 1);
+          sessionStorage.setItem(COMPLETION_KEY, 'handled');
+        }
+      });
+    } catch {
+      sessionStorage.setItem(COMPLETION_KEY, 'handled');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
 
   const handleStartQuick = () => {
     play('timer-start');
@@ -102,15 +165,18 @@ export default function TimerPage() {
     if (currentBlock?.id) {
       await db.blocks.update(currentBlock.id, { actualDurationMinutes: minutes });
     }
+    sessionStorage.setItem(COMPLETION_KEY, 'handled');
     setShowProgress(false);
   };
 
   const handleSkipProgress = () => {
+    sessionStorage.setItem(COMPLETION_KEY, 'handled');
     setIsAutoCompletion(false);
     setShowProgress(false);
   };
 
   const handleDialogClose = () => {
+    sessionStorage.setItem(COMPLETION_KEY, 'handled');
     setIsAutoCompletion(false);
     setShowProgress(false);
   };

@@ -127,12 +127,19 @@ export const useProjectStore = create<ProjectState>(() => ({
     // Create review knowledge point on completion
     if (progress >= 100 && project.createReviewOnComplete && project.subjectId) {
       try {
+        const pendingPlan = (window as any).__pendingReviewPlan;
         await useKnowledgeStore.getState().addKnowledgePoint({
           personaId: project.personaId,
           subjectId: project.subjectId,
           name: project.name,
           studyDate: Date.now(),
+          reviewDurationMinutes: pendingPlan?.reviewDurationMinutes,
+          initialStage: pendingPlan?.initialStage,
+          enabledStages: pendingPlan?.enabledStages,
         });
+        if (pendingPlan) {
+          delete (window as any).__pendingReviewPlan;
+        }
       } catch { /* ignore */ }
     }
 

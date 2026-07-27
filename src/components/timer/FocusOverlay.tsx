@@ -7,14 +7,49 @@ import { motion } from 'motion/react';
 import { X, RotateCw, Plus, Minus } from 'lucide-react';
 
 export function FocusOverlay() {
-  const { phase, timeStr, extend, shorten } = useTimer();
+  const { phase, extend, shorten } = useTimer();
   const totalSeconds = useTimerStore(s => s.totalSeconds);
-  const remainingSeconds = useTimerStore(s => s.remainingSeconds);
   const currentBlockId = useTimerStore(s => s.currentBlockId);
   const setFocusMode = useUIStore(s => s.setFocusMode);
   const [landscape, setLandscape] = useState(true);
   const [blockName, setBlockName] = useState('');
   const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+  const [displayRemaining, setDisplayRemaining] = useState(
+    useTimerStore.getState().remainingSeconds,
+  );
+
+  // (4) handleClose moved before effects
+  const handleClose = useCallback(() => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    try { (screen.orientation as any)?.unlock?.(); } catch {}
+    setFocusMode(false);
+  }, [setFocusMode]);
+
+  // (5) Auto-close 3s after completion
+  useEffect(() => {
+    if (phase === 'completed') {
+      const timer = setTimeout(handleClose, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [phase, handleClose]);
+
+  // (2) rAF-driven displayRemaining update every ~250ms
+  useEffect(() => {
+    let rafId: number;
+    let lastUpdate = 0;
+    const THROTTLE = 250;
+
+    const loop = (timestamp: number) => {
+      if (timestamp - lastUpdate >= THROTTLE) {
+        setDisplayRemaining(useTimerStore.getState().remainingSeconds);
+        lastUpdate = timestamp;
+      }
+      rafId = requestAnimationFrame(loop);
+    };
+
+    rafId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
 
   useEffect(() => {
     if (currentBlockId) {
@@ -56,12 +91,6 @@ export function FocusOverlay() {
     return () => window.removeEventListener('keydown', handleKey);
   }, []);
 
-  const handleClose = useCallback(() => {
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    try { (screen.orientation as any)?.unlock?.(); } catch {}
-    setFocusMode(false);
-  }, [setFocusMode]);
-
   const handleToggleOrientation = useCallback(async () => {
     setLandscape(l => !l);
     if (!landscape) {
@@ -79,12 +108,20 @@ export function FocusOverlay() {
     }
   }, [landscape]);
 
-  const elapsed = totalSeconds - remainingSeconds;
+  const displayMin = Math.floor(displayRemaining / 60);
+  const displaySec = displayRemaining % 60;
+  const displayTimeStr = `${String(displayMin).padStart(2, '0')}:${String(displaySec).padStart(2, '0')}`;
+
+  const elapsed = totalSeconds - displayRemaining;
   const elapsedMin = Math.floor(elapsed / 60);
   const elapsedSec = elapsed % 60;
-  const progress = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0;
+  const progress = totalSeconds > 0 ? displayRemaining / totalSeconds : 0;
   const ringSize = isMobile && landscape ? 220 : 320;
   const ringStroke = isMobile && landscape ? 10 : 16;
+
+  // (3) Completed phase label
+  const phaseLabel =
+    phase === 'running' ? '专注中' : phase === 'paused' ? '已暂停' : '已完成';
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex items-center justify-center overflow-hidden">
@@ -130,13 +167,13 @@ export function FocusOverlay() {
               className="font-bold tabular-nums tracking-wide"
               style={{ fontSize: isMobile && landscape ? '2.5rem' : '4.5rem' }}
             >
-              {timeStr}
+              {displayTimeStr}
             </div>
             {blockName && (
               <div className="text-xs text-muted-foreground max-w-[160px] truncate px-2">{blockName}</div>
             )}
             <div className="text-xs text-muted-foreground/50 mt-0.5">
-              {phase === 'running' ? '专注中' : '已暂停'} · {String(elapsedMin).padStart(2, '0')}:{String(elapsedSec).padStart(2, '0')}
+              {phaseLabel} · {String(elapsedMin).padStart(2, '0')}:{String(elapsedSec).padStart(2, '0')}
             </div>
           </div>
         </div>

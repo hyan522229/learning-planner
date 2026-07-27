@@ -3,22 +3,59 @@ import { useSettingsStore } from '@/stores/settingsStore';
 
 type SoundName = 'timer-start' | 'timer-end' | 'block-complete' | 'review-correct' | 'review-wrong' | 'achievement';
 
-function beep(frequency: number, duration: number, volume: number = 0.12, type: OscillatorType = 'sine', delay: number = 0) {
-  try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = frequency;
-    osc.type = type;
-    gain.gain.setValueAtTime(volume, ctx.currentTime + delay);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
-    osc.start(ctx.currentTime + delay);
-    osc.stop(ctx.currentTime + delay + duration);
-  } catch { /* audio not available */ }
+// ---------------------------------------------------------------------------
+// Module-level shared AudioContext
+// ---------------------------------------------------------------------------
+let audioCtx: AudioContext | null = null;
+
+function getCtx(): AudioContext {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+    // Global touch / click listeners that resume the suspended context.
+    // These are intentionally NOT { once: true } -- they stay active so that
+    // every user gesture after a state change (e.g. device sleep) can resume.
+    const resume = () => {
+      audioCtx?.resume();
+    };
+    window.addEventListener('touchstart', resume);
+    window.addEventListener('click', resume);
+  }
+  return audioCtx;
 }
 
+// ---------------------------------------------------------------------------
+// beep -- properly awaits resume() via .then()
+// ---------------------------------------------------------------------------
+function beep(
+  frequency: number,
+  duration: number,
+  volume: number = 0.12,
+  type: OscillatorType = 'sine',
+  delay: number = 0,
+) {
+  try {
+    const ctx = getCtx();
+    ctx.resume().then(() => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = frequency;
+      osc.type = type;
+      gain.gain.setValueAtTime(volume, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + duration);
+    });
+  } catch {
+    /* audio not available */
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sound compositions -- all existing beep frequencies preserved
+// ---------------------------------------------------------------------------
 function playFallbackBeep(type: 'start' | 'end' | 'correct' | 'wrong') {
   if (type === 'start') {
     beep(660, 0.2, 0.1, 'sine');
@@ -35,21 +72,27 @@ function playFallbackBeep(type: 'start' | 'end' | 'correct' | 'wrong') {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
 export function useSound() {
   const soundEnabled = useSettingsStore(s => s.settings?.soundEnabled ?? true);
 
-  const play = useCallback((name: SoundName) => {
-    if (!soundEnabled) return;
-    const typeMap: Record<SoundName, 'start' | 'end' | 'correct' | 'wrong'> = {
-      'timer-start': 'start',
-      'timer-end': 'end',
-      'block-complete': 'end',
-      'review-correct': 'correct',
-      'review-wrong': 'wrong',
-      'achievement': 'end',
-    };
-    playFallbackBeep(typeMap[name]);
-  }, [soundEnabled]);
+  const play = useCallback(
+    (name: SoundName) => {
+      if (!soundEnabled) return;
+      const typeMap: Record<SoundName, 'start' | 'end' | 'correct' | 'wrong'> = {
+        'timer-start': 'start',
+        'timer-end': 'end',
+        'block-complete': 'end',
+        'review-correct': 'correct',
+        'review-wrong': 'wrong',
+        achievement: 'end',
+      };
+      playFallbackBeep(typeMap[name]);
+    },
+    [soundEnabled],
+  );
 
   return { play };
 }

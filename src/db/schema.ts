@@ -95,6 +95,31 @@ export class LearningPlannerDB extends Dexie {
       audioFiles: 'id, personaId, category, [personaId+category]',
       projectCollections: 'id, personaId',
     });
+
+    this.version(6).stores({
+      personas: 'id',
+      subjects: 'id, personaId, priority',
+      knowledgePoints: 'id, personaId, subjectId, nextReviewDate, status, [personaId+nextReviewDate], [personaId+status]',
+      projects: 'id, personaId, subjectId, status, [personaId+status]',
+      blocks: 'id, personaId, date, status, [personaId+date], [personaId+date+status], [personaId+status]',
+      errorProblems: 'id, personaId, subjectId, nextReviewDate, status, [personaId+nextReviewDate], [personaId+status]',
+      environments: 'id, personaId',
+      dailyPlans: 'id, personaId, date',
+      dailyStatuses: 'id, personaId, date',
+      settings: 'id',
+      progressLogs: 'id, projectId, personaId, date, [projectId+date]',
+      audioFiles: 'id, personaId, category, [personaId+category]',
+      projectCollections: 'id, personaId',
+    }).upgrade(async tx => {
+      const cols = await tx.table("projectCollections").toArray();
+      for (const col of cols) {
+        if (col.cycleDays === undefined) col.cycleDays = 7;
+        if (col.cycleStartDate === undefined) col.cycleStartDate = col.createdAt ?? Date.now();
+        if (col.dailyBlockLimit === undefined) col.dailyBlockLimit = -1;
+        if (col.mode === undefined) col.mode = "single";
+        await tx.table("projectCollections").put(col);
+      }
+    });
   }
 }
 

@@ -58,16 +58,18 @@ export function TimerPanel() {
         play('block-complete');
       }
       fire('medium');
-      if (currentBlockId) {
-        const actualMins = Math.round(lastElapsedSeconds / 60);
-        updateBlockStatus(currentBlockId, 'completed', actualMins || 1);
-      }
     }
     if (prevPhase.current !== 'running' && phase === 'running') {
+      // Stop any playing task-complete music when a new timer starts
+      const cleanup = activeAudioCleanup.current;
+      if (cleanup) {
+        cleanup();
+        activeAudioCleanup.current = null;
+      }
       play('timer-start');
     }
     prevPhase.current = phase;
-  }, [phase, play, fire, currentBlockId, updateBlockStatus, lastElapsedSeconds, taskCompleteMusicEnabled, activePersonaId]);
+  }, [phase, play, fire, taskCompleteMusicEnabled, activePersonaId]);
 
   const handleUndo = () => {
     reset();

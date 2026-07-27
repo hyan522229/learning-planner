@@ -5,10 +5,12 @@ import gsap from 'gsap';
 interface ProgressProps {
   value?: number;
   className?: string;
+  color?: 'blue' | 'green';
 }
 
 const Progress = forwardRef<HTMLDivElement, ProgressProps>(
-  ({ className, value = 0, ...props }, ref) => {
+  ({ className, value = 0, color = 'blue', ...props }, ref) => {
+    const gradient = color === 'green' ? 'linear-gradient(90deg, #22c55e, #16a34a, #22c55e)' : 'linear-gradient(90deg, #3b82f6, #2563eb, #3b82f6)';
     const barRef = useRef<HTMLDivElement>(null);
     const prevValue = useRef(0);
 
@@ -59,7 +61,7 @@ const Progress = forwardRef<HTMLDivElement, ProgressProps>(
           className="h-full rounded-full relative overflow-hidden"
           style={{
             width: '0%',
-            background: 'linear-gradient(90deg, #3b82f6, #2563eb, #3b82f6)',
+            background: gradient,
             backgroundSize: '200% 100%',
             animation: 'progress-charge 3s linear infinite',
           }}

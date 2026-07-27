@@ -198,7 +198,10 @@ export interface ProjectCollection {
   personaId: string;
   name: string;
   projectIds: string[];
-  mode: 'single' | 'dual';
+  mode: 'single' | 'dual' | 'cycle';
+  cycleDays: number;
+  cycleStartDate: number;
+  dailyBlockLimit: number;
   createdAt: number;
 }
 
