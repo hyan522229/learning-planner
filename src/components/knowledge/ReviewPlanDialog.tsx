@@ -54,8 +54,8 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 max-h-[85vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }} modal={false}>
+      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 max-h-[85vh] overflow-y-auto overscroll-contain">
         <DialogHeader>
           <DialogTitle>设置复习计划</DialogTitle>
         </DialogHeader>
@@ -103,7 +103,7 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
               max={120}
             />
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 sticky bottom-0 bg-white dark:bg-gray-900 py-3 border-t dark:border-gray-700 -mx-1 px-1">
             <Button variant="outline" onClick={onClose}>取消</Button>
             <Button onClick={handleSave} disabled={firstChecked < 0}>确认设置</Button>
           </div>
