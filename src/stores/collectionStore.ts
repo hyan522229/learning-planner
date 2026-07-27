@@ -7,17 +7,24 @@ import type { ProjectCollection } from '@/types';
 const DAY_MS = 86400000;
 
 export function getCycleActiveProjectId(
-  collection: { cycleDays: number; cycleStartDate: number; projectIds: string[] },
+  collection: ProjectCollection,
   todayEpoch: number,
-  projectRemaining?: string[],
-  projectStatuses?: Record<string, string>
+  projectRemaining?: Map<string, number>,
+  projectStatuses?: Map<string, string>,
 ): string | null {
-  const nc = projectRemaining ?? [];
+  let nc: string[];
+  if (projectRemaining) {
+    nc = collection.projectIds.filter(id => (projectRemaining.get(id) ?? 0) > 0);
+  } else if (projectStatuses) {
+    nc = collection.projectIds.filter(id => projectStatuses.get(id) !== 'completed');
+  } else {
+    nc = [...collection.projectIds];
+  }
+  if (nc.length === 0) return null;
   const cycleLen = Math.min(collection.cycleDays || nc.length, nc.length);
-  if (cycleLen <= 0 || nc.length === 0) return null;
-  const daysSinceStart = Math.floor((todayEpoch - collection.cycleStartDate) / DAY_MS);
+  const daysSinceStart = Math.floor((todayEpoch - (collection.cycleStartDate || collection.createdAt)) / DAY_MS);
   const index = ((daysSinceStart % cycleLen) + cycleLen) % cycleLen;
-  return nc[index] || null;
+  return nc[index];
 }
 
 interface CollectionState {
@@ -76,7 +83,8 @@ export const useCollectionStore = create<CollectionState>(() => ({
         .map(p => p!.id);
 
       if (col.mode === 'cycle') {
-        const activeId = getCycleActiveProjectId(col, epoch, remaining);
+        const statusMap = new Map(projects.filter(p => p).map(p => [p!.id, p!.status]));
+        const activeId = getCycleActiveProjectId(col, epoch, undefined, statusMap);
         if (activeId) activeIds.add(activeId);
       } else if (col.mode === 'single') {
         if (remaining.length > 0) activeIds.add(remaining[0]);

@@ -288,26 +288,26 @@ async function buildDayBlocks(
   // Build collection block limit map for all collection modes (cycle/single/dual)
   const collectionBlockLimit = new Map<string, number>();
   for (const col of allCollections) {
-    if (!col.dailyBlockLimit || col.dailyBlockLimit <= 0) continue;
+    if (col.dailyBlockLimit === 0) continue; // 0 = skip this collection entirely
     if (col.projectIds.length === 0) continue;
 
     const colProjects = (await db.projects.bulkGet(col.projectIds))
-      .filter(p => p && p.status !== 'completed')
-      .map(p => p!.id);
+      .filter((p): p is Project => p != null && p.status !== 'completed');
 
     if (col.mode === 'cycle') {
-      const activeId = getCycleActiveProjectId(col, date, colProjects);
+      const statusMap = new Map(colProjects.map(p => [p.id, p.status]));
+      const activeId = getCycleActiveProjectId(col, date, isFullPlan ? projectRemaining : undefined, statusMap);
       if (activeId) {
         collectionBlockLimit.set(activeId, col.dailyBlockLimit);
       }
     } else if (col.mode === 'single') {
       if (colProjects.length > 0) {
-        collectionBlockLimit.set(colProjects[0], col.dailyBlockLimit);
+        collectionBlockLimit.set(colProjects[0].id, col.dailyBlockLimit);
       }
     } else {
       // dual mode: first two non-completed
       for (let i = 0; i < Math.min(2, colProjects.length); i++) {
-        collectionBlockLimit.set(colProjects[i], col.dailyBlockLimit);
+        collectionBlockLimit.set(colProjects[i].id, col.dailyBlockLimit);
       }
     }
   }
@@ -407,13 +407,13 @@ async function buildDayBlocks(
         const proj = shuffledProjects[projectCursor % shuffledProjects.length];
         projectCursor++;
 
-        if (proj.dailyBlockLimit === 0) continue;
+        // Enforce daily limit — collection limit overrides project limit
+        const effectiveLimit = collectionBlockLimit.get(proj.id) ?? proj.dailyBlockLimit;
+        if (effectiveLimit === 0) continue;
 
         const projRemaining = remaining.get(proj.id) || 0;
         if (projRemaining <= 0) continue;
 
-        // Enforce daily limit (collection limit overrides project limit)
-        const effectiveLimit = collectionBlockLimit.get(proj.id) ?? proj.dailyBlockLimit;
         if (effectiveLimit > 0) {
           const currentCount = projectBlockCounts.get(proj.id) || 0;
           if (currentCount >= effectiveLimit) continue;

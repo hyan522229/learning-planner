@@ -82,13 +82,9 @@ export default function DailyPlanPage() {
   }, [collections]);
 
   const getColBadge = (col: typeof collections[number]) => {
-    const firstPid = col.projectIds[0];
-    const proj = activeProjects.find(p => p.id === firstPid);
-    if (proj?.subjectId) {
-      const sub = subjects.find(s => s.id === proj.subjectId);
-      if (sub) return { name: col.name, color: sub.color, icon: sub.icon };
-    }
-    return { name: col.name, color: '#888', icon: '' };
+    if (col.mode === 'cycle') return { label: `${col.cycleDays || 7}天轮换`, cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' };
+    if (col.mode === 'dual') return { label: '双项目', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' };
+    return { label: '单项目', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' };
   };
 
   useEffect(() => {
@@ -380,14 +376,10 @@ export default function DailyPlanPage() {
                     )}
                   >
                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                      {badge.icon && <span className="text-xs">{badge.icon}</span>}
-                      <span
-                        className="text-xs px-1.5 py-0.5 rounded font-medium shrink-0"
-                        style={{ backgroundColor: badge.color + '20', color: badge.color }}
-                      >
-                        合集
+                      <span className="text-sm truncate">{col.name}</span>
+                      <span className={cn('text-[10px] px-1.5 py-0.5 rounded shrink-0', badge.cls)}>
+                        {badge.label}
                       </span>
-                      <span className="text-sm truncate">{badge.name}</span>
                     </div>
                     <span className={cn(
                       'text-sm tabular-nums w-12 text-center',

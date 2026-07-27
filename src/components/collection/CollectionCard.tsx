@@ -112,7 +112,7 @@ export function CollectionCard({
                 variant={MODE_VARIANTS[collection.mode] ?? 'default'}
                 className="text-[10px]"
               >
-                {MODE_LABELS[collection.mode] ?? collection.mode}
+                {MODE_LABELS[collection.mode] || (collection.mode === 'cycle' ? '循环' : collection.mode === 'dual' ? '双项目' : '单项目')}
               </Badge>
               <span className="text-xs text-muted-foreground">
                 {completedCount}/{totalCount} 项目完成
@@ -174,7 +174,7 @@ export function CollectionCard({
         </div>
 
         {/* ---- Progress bar (same as project cards) ---- */}
-        <Progress value={completionPct} />
+        <Progress value={completionPct} color="green" />
 
         {/* ---- Expandable project list ---- */}
         <AnimatePresence>
