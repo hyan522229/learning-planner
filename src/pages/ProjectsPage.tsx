@@ -171,6 +171,38 @@ export default function ProjectsPage() {
     setShowCreateCollection(false);
   }, [colName, activePersonaId, colSelectedIds, colMode, colCycleDays, addCollection, updateCollection, collections]);
 
+  const handleAddProjectsToCol = useCallback(async (colId: string, projectIds: string[]) => {
+    const col = collections.find(c => c.id === colId);
+    if (!col) return;
+    const existing = new Set(col.projectIds);
+    const toAdd = projectIds.filter(id => !existing.has(id));
+    if (toAdd.length === 0) return;
+    await updateCollection(colId, { projectIds: [...col.projectIds, ...toAdd] });
+  }, [collections, updateCollection]);
+
+  const handleRemoveProjectFromCol = useCallback(async (colId: string, projectId: string) => {
+    const col = collections.find(c => c.id === colId);
+    if (!col) return;
+    await updateCollection(colId, { projectIds: col.projectIds.filter(id => id !== projectId) });
+  }, [collections, updateCollection]);
+
+  const handleMoveProjectInCol = useCallback(async (colId: string, projectId: string, dir: 'up' | 'down') => {
+    const col = collections.find(c => c.id === colId);
+    if (!col) return;
+    const idx = col.projectIds.indexOf(projectId);
+    if (idx === -1) return;
+    const newIds = [...col.projectIds];
+    const delta = dir === 'up' ? -1 : 1;
+    const newIdx = idx + delta;
+    if (newIdx < 0 || newIdx >= newIds.length) return;
+    [newIds[idx], newIds[newIdx]] = [newIds[newIdx], newIds[idx]];
+    await updateCollection(colId, { projectIds: newIds });
+  }, [collections, updateCollection]);
+
+  const restartCycle = useCallback(async (colId: string) => {
+    await updateCollection(colId, { cycleStartDate: Date.now() });
+  }, [updateCollection]);
+
   const handleAdd = async () => {
     if (!name.trim() || !activePersonaId) return;
     const projectId = await addProject({
@@ -284,13 +316,9 @@ export default function ProjectsPage() {
         </Link>
       </div>
 
-      {/* Project Collections */}
+      {/* Project Collections — rendered inline with standalone projects in one unified list */}
       {collections.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-            <RefreshCw size={16} />
-            项目合集
-          </h2>
           <AnimatePresence>
             {collections.map(col => {
               const colProjects = col.projectIds
@@ -304,8 +332,17 @@ export default function ProjectsPage() {
                     collection={col}
                     projects={colProjects}
                     progress={progress}
-                    onUpdate={(id: string, partial: Partial<ProjectCollection>) => updateCollection(id, partial)}
-                    onDelete={(id: string) => deleteCollection(id)}
+                    allProjects={activeProjects}
+                    onAddProjects={(ids) => handleAddProjectsToCol(col.id, ids)}
+                    onRemoveProject={(pid) => handleRemoveProjectFromCol(col.id, pid)}
+                    onMoveProject={(pid, dir) => handleMoveProjectInCol(col.id, pid, dir)}
+                    onCreateProjectFull={() => { setAddToCollectionId(col.id); setShowForm(true); }}
+                    onProjectProgress={(id) => { setUpdateProjectId(id); setUpdateAmount('0'); }}
+                    onProjectReview={(p) => handleAddToReviewEngine(p)}
+                    onProjectDelete={(id) => deleteProject(id)}
+                    onDelete={() => deleteCollection(col.id)}
+                    onRestartCycle={col.mode === 'cycle' ? () => restartCycle(col.id) : undefined}
+                    onUpdate={(id, partial) => updateCollection(id, partial)}
                   />
                 </motion.div>
               );
@@ -537,8 +574,15 @@ export default function ProjectsPage() {
       {/* Add Project Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>添加项目</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{addToCollectionId ? '添加项目到合集' : '添加项目'}</DialogTitle>
+          </DialogHeader>
           <div className="space-y-4">
+            {addToCollectionId && (
+              <p className="text-sm text-muted-foreground">
+                新项目将自动添加到目标合集中
+              </p>
+            )}
             <div className="space-y-2">
               <Label>项目名称</Label>
               <Input placeholder="例如：数学练习册" key={String(showForm)} defaultValue={name}

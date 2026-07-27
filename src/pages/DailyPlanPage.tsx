@@ -202,6 +202,23 @@ export default function DailyPlanPage() {
     return { total, completed };
   }, [displayBlocks]);
 
+  const subjectStats = useMemo(() => {
+    const map = new Map<string, { name: string; color: string; minutes: number }>();
+    for (const b of displayBlocks) {
+      if (b.subjectId) {
+        const sub = subjects.find(s => s.id === b.subjectId);
+        const entry = map.get(b.subjectId) || {
+          name: sub?.name || '未知',
+          color: sub?.color || '#888',
+          minutes: 0,
+        };
+        entry.minutes += b.estimatedDurationMinutes;
+        map.set(b.subjectId, entry);
+      }
+    }
+    return Array.from(map.values());
+  }, [displayBlocks, subjects]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -313,6 +330,18 @@ export default function DailyPlanPage() {
         >
           <Plus size={14} /> 添加
         </Button>
+        {displayBlocks.length > 0 && (
+          <>
+            <span className="text-xs text-muted-foreground ml-auto">
+              共 {formatDurationCompact(timeStats.total)} · {displayBlocks.length} 块
+            </span>
+            {subjectStats.map((s, i) => (
+              <span key={i} className="text-[11px] text-muted-foreground">
+                <span style={{ color: s.color }}>●</span> {s.name} {formatDurationCompact(s.minutes)}
+              </span>
+            ))}
+          </>
+        )}
       </div>
 
       {/* Per-project daily block controls */}
@@ -435,28 +464,6 @@ export default function DailyPlanPage() {
           </div>
         );
       })()}
-
-      {/* Time stats bar */}
-      {displayBlocks.length > 0 && (
-        <div className="rounded-lg border bg-card p-3">
-          <div className="flex items-center justify-between text-sm mb-2">
-            <span className="text-muted-foreground">今日用时</span>
-            <span className="font-medium tabular-nums">
-              {formatDurationCompact(timeStats.completed)} / {formatDurationCompact(timeStats.total)}
-            </span>
-          </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-brand-500 rounded-full transition-all duration-500"
-              style={{
-                width: timeStats.total > 0
-                  ? `${Math.min(100, Math.round((timeStats.completed / timeStats.total) * 100))}%`
-                  : '0%',
-              }}
-            />
-          </div>
-        </div>
-      )}
 
       <Timeline
         blocks={displayBlocks}

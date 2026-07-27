@@ -201,6 +201,8 @@ export interface ProjectCollection {
   mode: 'single' | 'dual' | 'cycle';
   cycleDays: number;
   cycleStartDate: number;
+  cycleCount?: number;
+  currentIndex?: number;
   dailyBlockLimit: number;
   createdAt: number;
 }
