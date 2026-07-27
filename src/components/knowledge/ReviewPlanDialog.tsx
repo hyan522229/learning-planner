@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button, Input, Label } from '@/components/ui';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
 import { cn } from '@/utils/cn';
@@ -28,6 +28,14 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
   );
   const [duration, setDuration] = useState(String(defaultDuration));
 
+  // Sync state when dialog re-opens (prevents stale values from previous open)
+  useEffect(() => {
+    if (open) {
+      setDuration(String(defaultDuration));
+      setChecked(Array.from({ length: 10 }, (_, i) => i >= defaultStage));
+    }
+  }, [open, defaultDuration, defaultStage]);
+
   const toggle = (i: number) => {
     const next = [...checked];
     next[i] = !next[i];
@@ -47,7 +55,7 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
+      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>设置复习计划</DialogTitle>
         </DialogHeader>

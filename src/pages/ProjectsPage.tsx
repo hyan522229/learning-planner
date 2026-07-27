@@ -573,7 +573,7 @@ export default function ProjectsPage() {
 
       {/* Add Project Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{addToCollectionId ? '添加项目到合集' : '添加项目'}</DialogTitle>
           </DialogHeader>
@@ -736,7 +736,7 @@ export default function ProjectsPage() {
 
       {/* Create Collection Dialog */}
       <Dialog open={showCreateCollection} onOpenChange={setShowCreateCollection}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>新建项目合集</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">

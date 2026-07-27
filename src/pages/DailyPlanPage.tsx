@@ -328,8 +328,8 @@ export default function DailyPlanPage() {
         </Button>
         {displayBlocks.length > 0 && (
           <>
-            <span className="text-xs text-muted-foreground ml-auto">
-              共 {formatDurationCompact(timeStats.total)} · {displayBlocks.length} 块
+            <span className="text-xs text-muted-foreground">
+              · 共 <span className="font-semibold text-foreground">{formatDurationCompact(timeStats.total)}</span> · {displayBlocks.length} 块
             </span>
             {subjectStats.map((s, i) => (
               <span key={i} className="text-[11px] text-muted-foreground">

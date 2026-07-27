@@ -174,7 +174,7 @@ export function CollectionCard({
         </div>
 
         {/* ---- Progress bar (same as project cards) ---- */}
-        <Progress value={completionPct} color="green" />
+        <Progress value={completionPct} />
 
         {/* ---- Expandable project list ---- */}
         <AnimatePresence>
