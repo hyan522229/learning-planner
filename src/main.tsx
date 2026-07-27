@@ -100,6 +100,8 @@ if ('serviceWorker' in navigator) {
 
   navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw.js').then(reg => {
     reloadOnUpdate(reg);
+    // Check for updates on page load (handles manual refresh)
+    reg.update();
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') reg.update();
     });
