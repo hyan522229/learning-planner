@@ -112,3 +112,54 @@ export function ReviewPlanDialog({ open, onClose, onSave, defaultStage = 0, defa
     </Dialog>
   );
 }
+
+// ── Inline version (no Dialog wrapper) — avoids nested-dialog issues ──
+interface InlineProps {
+  onSave: (data: { initialStage: number; reviewDurationMinutes: number; enabledStages: boolean[] }) => void;
+  onCancel: () => void;
+  defaultStage?: number;
+  defaultDuration?: number;
+}
+
+export function ReviewPlanInline({ onSave, onCancel, defaultStage = 0, defaultDuration = 10 }: InlineProps) {
+  const [checked, setChecked] = useState<boolean[]>(() => Array.from({ length: 10 }, (_, i) => i >= defaultStage));
+  const [duration, setDuration] = useState(String(defaultDuration));
+
+  useEffect(() => {
+    setDuration(String(defaultDuration));
+    setChecked(Array.from({ length: 10 }, (_, i) => i >= defaultStage));
+  }, [defaultDuration, defaultStage]);
+
+  const toggle = (i: number) => { const next = [...checked]; next[i] = !next[i]; setChecked(next); };
+  const firstChecked = checked.indexOf(true);
+
+  const handleSave = () => {
+    onSave({ initialStage: Math.max(0, firstChecked), reviewDurationMinutes: Number(duration) || 10, enabledStages: checked });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto">
+        {Array.from({ length: 10 }, (_, i) => (
+          <label key={i} className={cn(
+            'flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs cursor-pointer transition-all',
+            checked[i] ? 'bg-blue-50 border-blue-400 text-blue-800 dark:bg-blue-950 dark:border-blue-600 dark:text-blue-200'
+              : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300',
+          )}>
+            <input type="checkbox" checked={checked[i]} onChange={() => toggle(i)} className="rounded accent-blue-600" />
+            <span className="font-medium">R{i + 1}</span>
+            <span className="text-[10px] opacity-70 ml-auto">{formatDay(CUMULATIVE_DAYS[i])}</span>
+          </label>
+        ))}
+      </div>
+      <div>
+        <Label>每次复习时长（分钟）</Label>
+        <Input type="number" value={duration} onChange={e => setDuration(e.target.value)} min={5} max={120} className="h-8 text-sm" />
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={onCancel}>取消</Button>
+        <Button size="sm" onClick={handleSave} disabled={firstChecked < 0}>确认设置</Button>
+      </div>
+    </div>
+  );
+}

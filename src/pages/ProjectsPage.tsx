@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button, Input, Label, Progress, Badge } from '@/components/ui';
 import { Card, CardContent } from '@/components/ui';
-import { ReviewPlanDialog } from '@/components/knowledge/ReviewPlanDialog';
+import { ReviewPlanDialog, ReviewPlanInline } from '@/components/knowledge/ReviewPlanDialog';
 import { StartButton } from '@/components/ui/StartButton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
 import { Plus, Trash2, Archive, ChevronUp, ChevronDown, History, Trophy, BookOpen, Sparkles, AlertTriangle, ArrowRight, Pencil, Check, X, Brain, RefreshCw } from 'lucide-react';
@@ -709,10 +709,26 @@ export default function ProjectsPage() {
               />
               <p className="text-[10px] text-muted-foreground">仅供参考，实际排块不受此限制。0=暂不自动安排</p>
             </div>
+            {/* Inline review plan — opens below the button */}
             <div className="space-y-2 pt-2">
-              <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setShowReviewPlan(true)}>
-                设置复习计划
-              </Button>
+              {!showReviewPlan ? (
+                <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setShowReviewPlan(true)}>
+                  设置复习计划
+                </Button>
+              ) : (
+                <div className="p-3 rounded-lg border bg-muted/30 space-y-3">
+                  <p className="text-xs font-medium">复习计划设置</p>
+                  <div className="text-xs text-muted-foreground">勾选复习阶段、设置时长后点确认</div>
+                  <ReviewPlanInline
+                    onSave={(data) => {
+                      setCreateReview(true);
+                      setShowReviewPlan(false);
+                      (window as any).__pendingReviewPlan = data;
+                    }}
+                    onCancel={() => setShowReviewPlan(false)}
+                  />
+                </div>
+              )}
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setShowForm(false)}>取消</Button>
                 <Button onClick={handleAdd}>添加</Button>
@@ -721,18 +737,6 @@ export default function ProjectsPage() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Review plan dialog for new project */}
-      <ReviewPlanDialog
-        open={showReviewPlan}
-        onClose={() => setShowReviewPlan(false)}
-        onSave={(data) => {
-          setCreateReview(true);
-          setShowReviewPlan(false);
-          // Store plan data for use when project is created
-          (window as any).__pendingReviewPlan = data;
-        }}
-      />
 
       {/* Create Collection Dialog */}
       <Dialog open={showCreateCollection} onOpenChange={setShowCreateCollection}>
