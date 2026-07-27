@@ -11,6 +11,26 @@ export interface CollectionProgress {
 }
 
 /**
+ * Synchronous version of calcCollectionProgress.
+ * Use this when you already have the projects array loaded (no DB fetch needed).
+ */
+export function calcCollectionProgressSync(
+  collection: ProjectCollection,
+  projects: Project[],
+): CollectionProgress {
+  const active = projects.filter((p) => p.status !== 'archived');
+  const totalCount = active.length;
+  const completedCount = active.filter((p) => p.status === 'completed').length;
+  const totalUnits = active.reduce((sum, p) => sum + p.total, 0);
+  const completedUnits = active.reduce((sum, p) => sum + p.completed, 0);
+  const totalProgress =
+    totalCount > 0 ? Math.min(100, Math.round((completedCount / totalCount) * 100)) : 0;
+  const completionProgress =
+    totalUnits > 0 ? Math.min(100, Math.round((completedUnits / totalUnits) * 100)) : 0;
+  return { totalProgress, completionProgress, completedCount, totalCount, totalUnits, completedUnits };
+}
+
+/**
  * Calculate progress for a collection by aggregating its member projects.
  *
  * `totalProgress` is the percentage of projects that have reached "completed" status.

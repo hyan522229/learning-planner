@@ -14,14 +14,14 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { useKnowledgeStore } from '@/stores/knowledgeStore';
 import { db } from '@/db';
-import type { MeasureType, Priority, ProgressLog, ProjectCategory } from '@/types';
+import type { MeasureType, Priority, ProgressLog, ProjectCategory, ProjectCollection, Project } from '@/types';
 import { PRIORITY_LABELS } from '@/engine/constants';
 import { formatDurationCompact } from '@/utils/time';
 import { formatDate } from '@/utils/date';
 import { cn } from '@/utils/cn';
-import { CollectionCard } from '@/components/collections/CollectionCard';
-import { calcCollectionProgress } from '@/components/collections/calcCollectionProgress';
-import type { CollectionProgress } from '@/components/collections/CollectionProgress';
+import { CollectionCard } from '@/components/collection/CollectionCard';
+import { calcCollectionProgressSync } from '@/engine/collection-progress';
+import type { CollectionProgress } from '@/engine/collection-progress';
 
 const measureLabels: Record<MeasureType, string> = {
   pages: '页', questions: '题', minutes: '分钟', words: '词', articles: '篇',
@@ -137,8 +137,8 @@ export default function ProjectsPage() {
     for (const col of collections) {
       const colProjects = col.projectIds
         .map(id => projects.find(p => p.id === id))
-        .filter(Boolean);
-      map.set(col.id, calcCollectionProgress(col, colProjects));
+        .filter((p): p is Project => p !== undefined);
+      map.set(col.id, calcCollectionProgressSync(col, colProjects));
     }
     return map;
   }, [collections, projects]);
@@ -154,7 +154,6 @@ export default function ProjectsPage() {
       name: colName.trim(),
       projectIds: colSelectedIds,
       mode: colMode,
-      cycleDays: colMode === 'cycle' ? (Number(colCycleDays) || 7) : undefined as any,
     });
     // If cycle mode was selected, update the collection with cycleDays after creation
     if (colMode === 'cycle') {
@@ -296,8 +295,8 @@ export default function ProjectsPage() {
             {collections.map(col => {
               const colProjects = col.projectIds
                 .map(id => projects.find(p => p.id === id))
-                .filter(Boolean);
-              const progress = collectionProgressMap.get(col.id);
+                .filter((p): p is Project => p !== undefined);
+              const progress = collectionProgressMap.get(col.id) ?? null;
 
               return (
                 <motion.div key={col.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }}>
@@ -305,8 +304,8 @@ export default function ProjectsPage() {
                     collection={col}
                     projects={colProjects}
                     progress={progress}
-                    onUpdate={(id, partial) => updateCollection(id, partial)}
-                    onDelete={(id) => deleteCollection(id)}
+                    onUpdate={(id: string, partial: Partial<ProjectCollection>) => updateCollection(id, partial)}
+                    onDelete={(id: string) => deleteCollection(id)}
                   />
                 </motion.div>
               );
