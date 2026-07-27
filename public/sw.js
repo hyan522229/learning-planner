@@ -1,24 +1,21 @@
-// Force immediate activation, never use stale SW
+// Immediate activation — no stale SW
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => {
   e.waitUntil(self.clients.claim());
-  // Force all clients to reload when SW updates
-  e.waitUntil(self.clients.matchAll().then(clients => {
-    clients.forEach(client => client.navigate(client.url));
+  // Post message to clients so they can decide to reload
+  e.waitUntil(self.clients.matchAll({ type: 'window' }).then(clients => {
+    clients.forEach(client => client.postMessage({ type: 'sw-updated' }));
   }));
 });
 
-// Network-first with no-cache header to always get fresh content
+// Listen for skip waiting
+self.addEventListener('message', e => {
+  if (e.data === 'skipWaiting') self.skipWaiting();
+});
+
+// Network-first — always try network
 self.addEventListener('fetch', e => {
   e.respondWith(
     fetch(e.request, { cache: 'no-cache' }).catch(() => caches.match(e.request))
   );
-});
-
-// Listen for update check from page
-self.addEventListener('message', e => {
-  if (e.data === 'skipWaiting') self.skipWaiting();
-  if (e.data === 'checkUpdate') self.clients.matchAll().then(clients => {
-    clients.forEach(client => client.postMessage({ type: 'update' }));
-  });
 });
