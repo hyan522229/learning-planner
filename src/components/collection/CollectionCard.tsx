@@ -218,22 +218,6 @@ export function CollectionCard({
                               <span className="text-sm font-medium truncate">
                                 {project.name}
                               </span>
-                              {project.category && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px]"
-                                >
-                                  {project.category}
-                                </Badge>
-                              )}
-                              {project.subjectId && (
-                                <Badge
-                                  variant="secondary"
-                                  className="text-[10px]"
-                                >
-                                  {project.subjectId}
-                                </Badge>
-                              )}
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {project.completed} / {project.total} · {pct}%
