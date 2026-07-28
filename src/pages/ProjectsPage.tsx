@@ -22,6 +22,7 @@ import { cn } from '@/utils/cn';
 import { CollectionCard } from '@/components/collection/CollectionCard';
 import { calcCollectionProgressSync } from '@/engine/collection-progress';
 import type { CollectionProgress } from '@/engine/collection-progress';
+import { generateId } from '@/utils/id';
 
 const measureLabels: Record<MeasureType, string> = {
   pages: '页', questions: '题', minutes: '分钟', words: '词', articles: '篇',
@@ -203,36 +204,49 @@ export default function ProjectsPage() {
     await updateCollection(colId, { cycleStartDate: Date.now() });
   }, [updateCollection]);
 
+  const submittingRef = useRef(false);
+
   const handleAdd = async () => {
-    if (!name.trim() || !activePersonaId) return;
-    const projectId = await addProject({
-      personaId: activePersonaId,
-      subjectId: subjectId || undefined,
-      name: name.trim(),
-      measureType,
-      category,
-      total: Number(total) || 100,
-      completed: Number(initialProgress) || 0,
-      priority,
-      initialSpeed: initialSpeed ? Number(initialSpeed) : undefined,
-      createReviewOnComplete: createReview && !!subjectId,
-      dailyBlockLimit: Number(dailyBlockLimit),
-    });
+    if (!name.trim() || !activePersonaId || submittingRef.current) return;
+    submittingRef.current = true;
 
-    // If addToCollectionId is set, add this project to that collection
-    if (addToCollectionId) {
-      const targetCol = collections.find(c => c.id === addToCollectionId);
-      if (targetCol) {
-        await updateCollection(addToCollectionId, {
-          projectIds: [...targetCol.projectIds, projectId],
-        });
+    try {
+      // Pre-generate ID so we can add to collection BEFORE project appears in list
+      const projectId = generateId();
+      const targetColId = addToCollectionId;
+
+      // Add to collection FIRST (with pre-generated ID) so it never appears outside
+      if (targetColId) {
+        const targetCol = collections.find(c => c.id === targetColId);
+        if (targetCol) {
+          await updateCollection(targetColId, {
+            projectIds: [...targetCol.projectIds, projectId],
+          });
+        }
+        setAddToCollectionId('');
       }
-      setAddToCollectionId('');
-    }
 
-    setName(''); setMeasureType('pages'); setCategory('study'); setTotal('100'); setPriority(3);
-    setSubjectId(''); setInitialProgress('0'); setInitialSpeed(''); setCreateReview(false); setDailyBlockLimit('-1');
-    setShowForm(false);
+      await addProject({
+        id: projectId,
+        personaId: activePersonaId,
+        subjectId: subjectId || undefined,
+        name: name.trim(),
+        measureType,
+        category,
+        total: Number(total) || 100,
+        completed: Number(initialProgress) || 0,
+        priority,
+        initialSpeed: initialSpeed ? Number(initialSpeed) : undefined,
+        createReviewOnComplete: createReview && !!subjectId,
+        dailyBlockLimit: Number(dailyBlockLimit),
+      });
+
+      setName(''); setMeasureType('pages'); setCategory('study'); setTotal('100'); setPriority(3);
+      setSubjectId(''); setInitialProgress('0'); setInitialSpeed(''); setCreateReview(false); setDailyBlockLimit('-1');
+      setShowForm(false);
+    } finally {
+      submittingRef.current = false;
+    }
   };
 
   const handleAddToReviewEngine = (project: any) => {

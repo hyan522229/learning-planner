@@ -7,7 +7,7 @@ import type { Project, MeasureType, Priority, ProgressLog, SpeedRecord, ProjectC
 
 interface ProjectState {
   addProject: (data: {
-    personaId: string; name: string; measureType: MeasureType;
+    id?: string; personaId: string; name: string; measureType: MeasureType;
     category: ProjectCategory;
     total: number; completed: number; priority: Priority; subjectId?: string;
     initialSpeed?: number; createReviewOnComplete?: boolean; dailyBlockLimit?: number;
@@ -24,7 +24,7 @@ interface ProjectState {
 
 export const useProjectStore = create<ProjectState>(() => ({
   addProject: async (data) => {
-    const id = generateId();
+    const id = (data as any).id || generateId();
     const now = Date.now();
     const speedRecords: SpeedRecord[] = data.initialSpeed && data.initialSpeed > 0
       ? [{ date: now, amountCompleted: 0, durationMinutes: 60, speed: data.initialSpeed }]
