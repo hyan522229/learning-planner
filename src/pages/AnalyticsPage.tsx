@@ -38,7 +38,10 @@ function DonutChart({ slices, size = 280 }: { slices: PieSlice[]; size?: number 
   const innerR = outerR * 0.58;
   const labelR = outerR + 28;
   const rawTotal = slices.reduce((s, sl) => s + sl.value, 0);
-  const total = rawTotal || 1;
+  // Add a tiny epsilon so a single 100% slice doesn't collapse:
+  // without it startAngle (-π/2) == endAngle (2π - π/2 = -π/2 mod 2π),
+  // making the SVG arc zero-width and the donut invisible.
+  const total = rawTotal + 0.001 || 1;
   const isEmpty = slices.length === 0 || rawTotal === 0;
 
   const arcs = useMemo(() => {
