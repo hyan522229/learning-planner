@@ -24,6 +24,9 @@ export default function TimerPage() {
   const [progressDuration, setProgressDuration] = useState('45');
   const [isAutoCompletion, setIsAutoCompletion] = useState(false);
   const prevPhase = useRef<string | null>(null);
+  // Keep recovered block info so handleSaveProgress/handleSkipProgress can
+  // call updateBlockStatus even when currentBlockId was reset by timer store.
+  const recoveredBlockRef = useRef<{ id: string; elapsedSeconds: number } | null>(null);
 
   const currentBlockId = useTimerStore(s => s.currentBlockId);
   const phase = useTimerStore(s => s.phase);
@@ -131,6 +134,7 @@ export default function TimerPage() {
           sessionStorage.setItem(COMPLETION_KEY, 'handled');
         } else if (block.projectId) {
           // Show progress dialog for project-linked blocks
+          recoveredBlockRef.current = { id: block.id, elapsedSeconds: data.elapsedSeconds };
           setProgressDuration(String(Math.round(data.elapsedSeconds / 60) || 1));
           setIsAutoCompletion(true);
           setShowProgress(true);
@@ -153,6 +157,7 @@ export default function TimerPage() {
 
   const handleSaveProgress = async () => {
     const minutes = Number(progressDuration) || 45;
+    const blockId = currentBlock?.id || recoveredBlockRef.current?.id;
     if (currentBlock?.projectId && progressAmount) {
       const amount = Number(progressAmount);
       if (amount > 0) {
@@ -161,21 +166,38 @@ export default function TimerPage() {
         play('achievement');
       }
     }
-    // Update block's actual duration to user-reported time
-    if (currentBlock?.id) {
-      await db.blocks.update(currentBlock.id, { actualDurationMinutes: minutes });
+    // Mark block as completed AND record actual duration
+    if (blockId) {
+      await updateBlockStatus(blockId, 'completed', minutes);
     }
+    recoveredBlockRef.current = null;
     sessionStorage.setItem(COMPLETION_KEY, 'handled');
     setShowProgress(false);
   };
 
   const handleSkipProgress = () => {
+    // Mark block completed even when skipping the progress form
+    const blockId = currentBlock?.id || recoveredBlockRef.current?.id;
+    const elapsed = recoveredBlockRef.current?.elapsedSeconds ?? lastElapsedSeconds;
+    if (blockId) {
+      const elapsedMins = Math.round(elapsed / 60) || 1;
+      updateBlockStatus(blockId, 'completed', elapsedMins);
+    }
+    recoveredBlockRef.current = null;
     sessionStorage.setItem(COMPLETION_KEY, 'handled');
     setIsAutoCompletion(false);
     setShowProgress(false);
   };
 
   const handleDialogClose = () => {
+    // Mark block completed when closing the dialog (same as skip)
+    const blockId = currentBlock?.id || recoveredBlockRef.current?.id;
+    const elapsed = recoveredBlockRef.current?.elapsedSeconds ?? lastElapsedSeconds;
+    if (blockId && phase === 'completed') {
+      const elapsedMins = Math.round(elapsed / 60) || 1;
+      updateBlockStatus(blockId, 'completed', elapsedMins);
+    }
+    recoveredBlockRef.current = null;
     sessionStorage.setItem(COMPLETION_KEY, 'handled');
     setIsAutoCompletion(false);
     setShowProgress(false);

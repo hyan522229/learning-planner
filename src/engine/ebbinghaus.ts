@@ -66,8 +66,8 @@ export interface StageResult {
 /**
  * Correct review → advance to next stage.
  * Computes nextReviewDate dynamically: now + interval[nextStage].
- * This keeps intervals correct regardless of whether the point was
- * created before or after the cumulative-interval fix.
+ * Also updates reviewDates so past stages reflect actual completion dates
+ * and future stages are projected from the actual schedule.
  */
 export function advanceStage(point: KnowledgePoint, allowSkip: boolean = false): StageResult {
   const newConsecutive = point.consecutiveCorrect + 1;
@@ -84,8 +84,11 @@ export function advanceStage(point: KnowledgePoint, allowSkip: boolean = false):
     }
   }
 
-  // Keep reviewDates rooted at studyDate for calendar display
-  const reviewDates = point.reviewDates.length === 10 ? point.reviewDates : calculateReviewDates(point.studyDate);
+  // Rebuild reviewDates: set the just-completed stage to today, project future
+  // dates from nextReviewDate. This keeps the calendar in sync with actual
+  // review timing — if a review was postponed, future dates shift accordingly.
+  const now = Date.now();
+  const reviewDates = buildSyncedReviewDates(point, point.currentStage, now);
 
   if (nextStage >= REVIEW_INTERVALS.length) {
     return {
@@ -101,10 +104,14 @@ export function advanceStage(point: KnowledgePoint, allowSkip: boolean = false):
     };
   }
 
+  const nextReviewDate = now + REVIEW_INTERVALS[nextStage] * DAY_MS;
+  // Project future reviewDates from the new nextReviewDate
+  const finalReviewDates = projectFutureDates(reviewDates, nextStage, nextReviewDate);
+
   return {
     currentStage: nextStage,
-    nextReviewDate: Date.now() + REVIEW_INTERVALS[nextStage] * DAY_MS,
-    reviewDates,
+    nextReviewDate,
+    reviewDates: finalReviewDates,
     consecutiveCorrect: newConsecutive,
     errorCount: 0,
     errorAtStage: 0,
@@ -123,14 +130,16 @@ export function advanceStage(point: KnowledgePoint, allowSkip: boolean = false):
 export function handleError(point: KnowledgePoint): StageResult {
   const stage = point.currentStage;
   const newErrorCount = (point.errorAtStage === stage ? point.errorCount : 0) + 1;
-  const reviewDates = point.reviewDates.length === 10 ? point.reviewDates : calculateReviewDates(point.studyDate);
+  const now = Date.now();
+  const reviewDates = buildSyncedReviewDates(point, point.currentStage, now);
 
   // Same stage error 3+ times → reset to R1
   if (newErrorCount >= 3) {
+    const nextReviewDate = now + REVIEW_INTERVALS[0] * DAY_MS;
     return {
       currentStage: 0,
-      nextReviewDate: Date.now() + REVIEW_INTERVALS[0] * DAY_MS,
-      reviewDates,
+      nextReviewDate,
+      reviewDates: projectFutureDates(reviewDates, 0, nextReviewDate),
       consecutiveCorrect: 0,
       errorCount: 0,
       errorAtStage: 0,
@@ -143,10 +152,11 @@ export function handleError(point: KnowledgePoint): StageResult {
   // Same stage error 2 times → downgrade one stage
   if (newErrorCount >= 2) {
     const downgradedStage = Math.max(0, stage - 1);
+    const nextReviewDate = now + REVIEW_INTERVALS[downgradedStage] * DAY_MS;
     return {
       currentStage: downgradedStage,
-      nextReviewDate: Date.now() + REVIEW_INTERVALS[downgradedStage] * DAY_MS,
-      reviewDates,
+      nextReviewDate,
+      reviewDates: projectFutureDates(reviewDates, downgradedStage, nextReviewDate),
       consecutiveCorrect: 0,
       errorCount: 0,
       errorAtStage: 0,
@@ -157,10 +167,11 @@ export function handleError(point: KnowledgePoint): StageResult {
   }
 
   // First error at this stage → insert makeup review tomorrow
+  const nextReviewDate = now + DAY_MS;
   return {
     currentStage: stage,
-    nextReviewDate: Date.now() + DAY_MS,
-    reviewDates,
+    nextReviewDate,
+    reviewDates: projectFutureDates(reviewDates, stage, nextReviewDate),
     consecutiveCorrect: 0,
     errorCount: newErrorCount,
     errorAtStage: stage,
@@ -168,4 +179,47 @@ export function handleError(point: KnowledgePoint): StageResult {
     action: 'makeup',
     message: `在 R${stage + 1} 插入补练复习，明天再巩固一次`,
   };
+}
+
+// ── Helpers: keep reviewDates in sync with actual review timing ──
+
+/**
+ * Build a reviewDates array where stages before `completedStage` reflect
+ * actual dates from the stored reviewDates (if available), the
+ * `completedStage` is set to `completionDate`, and later stages are
+ * projected forward from `completionDate`.
+ */
+function buildSyncedReviewDates(
+  point: KnowledgePoint,
+  completedStage: number,
+  completionDate: number,
+): number[] {
+  const existing = point.reviewDates.length === 10
+    ? [...point.reviewDates]
+    : calculateReviewDates(point.studyDate);
+
+  // Mark the just-completed stage with the actual completion date
+  if (completedStage >= 0 && completedStage < 10) {
+    existing[completedStage] = completionDate;
+  }
+
+  return existing;
+}
+
+/**
+ * Project future reviewDates from `fromStage` onward based on `baseDate`
+ * and the remaining REVIEW_INTERVALS. Past and current stages are preserved.
+ */
+function projectFutureDates(
+  dates: number[],
+  fromStage: number,
+  baseDate: number,
+): number[] {
+  const result = [...dates];
+  let cursor = baseDate;
+  for (let i = fromStage; i < REVIEW_INTERVALS.length; i++) {
+    cursor = cursor + REVIEW_INTERVALS[i] * DAY_MS;
+    result[i] = cursor;
+  }
+  return result;
 }

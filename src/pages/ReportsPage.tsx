@@ -179,18 +179,21 @@ function BlockList({ personaId, monthStart, monthEnd, onDeleteRequest }: {
 
   if (blocks.length === 0) return null;
 
+  // Sort by completion time, most recent first
+  const sorted = [...blocks].sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>已完成的学习块</span>
-          <span className="text-sm font-normal text-muted-foreground">{blocks.length} 个</span>
+          <span className="text-sm font-normal text-muted-foreground">{sorted.length} 个</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-1">
           <AnimatePresence>
-            {blocks.map((block: Block) => (
+            {sorted.map((block: Block) => (
               <motion.div
                 key={block.id}
                 initial={{ opacity: 0 }}
@@ -203,6 +206,7 @@ function BlockList({ personaId, monthStart, monthEnd, onDeleteRequest }: {
                   <span className="text-xs text-muted-foreground">
                     {formatDate(block.date, 'MM/dd')} · {formatDurationCompact(block.estimatedDurationMinutes)}
                     {block.actualDurationMinutes ? ` · 实际 ${formatDurationCompact(block.actualDurationMinutes)}` : ''}
+                    {block.completedAt ? ` · 完成于 ${formatDate(block.completedAt, 'MM/dd HH:mm')}` : ''}
                   </span>
                 </div>
                 <button

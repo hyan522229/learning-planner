@@ -295,8 +295,10 @@ async function buildDayBlocks(
       .filter((p): p is Project => p != null && p.status !== 'completed');
 
     if (col.mode === 'cycle') {
+      // Always use statusMap for consistent cycle index — remaining check
+      // happens later in the block generation loop (projRemaining <= 0).
       const statusMap = new Map(colProjects.map(p => [p.id, p.status]));
-      const activeId = getCycleActiveProjectId(col, date, isFullPlan ? projectRemaining : undefined, statusMap);
+      const activeId = getCycleActiveProjectId(col, date, undefined, statusMap);
       if (activeId) {
         collectionBlockLimit.set(activeId, col.dailyBlockLimit);
       }
@@ -305,9 +307,12 @@ async function buildDayBlocks(
         collectionBlockLimit.set(colProjects[0].id, col.dailyBlockLimit);
       }
     } else {
-      // dual mode: first two non-completed
-      for (let i = 0; i < Math.min(2, colProjects.length); i++) {
-        collectionBlockLimit.set(colProjects[i].id, col.dailyBlockLimit);
+      // dual mode: distribute limit evenly across active projects so the
+      // collection-level limit is the TOTAL blocks for the whole collection.
+      const activeCount = Math.min(2, colProjects.length);
+      const perProjectLimit = Math.ceil(col.dailyBlockLimit / activeCount);
+      for (let i = 0; i < activeCount; i++) {
+        collectionBlockLimit.set(colProjects[i].id, perProjectLimit);
       }
     }
   }

@@ -37,7 +37,9 @@ function DonutChart({ slices, size = 280 }: { slices: PieSlice[]; size?: number 
   const outerR = size / 2 - 20;
   const innerR = outerR * 0.58;
   const labelR = outerR + 28;
-  const total = slices.reduce((s, sl) => s + sl.value, 0) || 1;
+  const rawTotal = slices.reduce((s, sl) => s + sl.value, 0);
+  const total = rawTotal || 1;
+  const isEmpty = slices.length === 0 || rawTotal === 0;
 
   const arcs = useMemo(() => {
     let cum = 0;
@@ -76,7 +78,7 @@ function DonutChart({ slices, size = 280 }: { slices: PieSlice[]; size?: number 
     });
   }, [slices, total, cx, cy, outerR, innerR, labelR]);
 
-  if (slices.length === 0) {
+  if (isEmpty) {
     return (
       <div className="flex flex-col items-center py-10 text-muted-foreground">
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>

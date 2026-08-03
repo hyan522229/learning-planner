@@ -13,6 +13,7 @@ interface ReviewResult {
 
 interface KnowledgeState {
   addKnowledgePoint: (data: { personaId: string; subjectId: string; name: string; studyDate: number; reviewDurationMinutes?: number; initialStage?: number; enabledStages?: boolean[] }) => Promise<string>;
+  updateKnowledgePoint: (id: string, partial: Partial<KnowledgePoint>) => Promise<void>;
   updateReviewDuration: (id: string, minutes: number) => Promise<void>;
   submitReview: (id: string, rating: number, allowSkip?: boolean) => Promise<ReviewResult>;
   requestSkip: (id: string) => Promise<ReviewResult>;
@@ -100,6 +101,13 @@ export const useKnowledgeStore = create<KnowledgeState>(() => ({
 
   deleteKnowledgePoint: async (id) => {
     await db.knowledgePoints.delete(id);
+  },
+
+  updateKnowledgePoint: async (id, partial) => {
+    await db.knowledgePoints.update(id, {
+      ...partial,
+      updatedAt: Date.now(),
+    });
   },
 
   updateReviewDuration: async (id, minutes) => {

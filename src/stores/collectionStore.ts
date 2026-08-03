@@ -76,6 +76,9 @@ export const useCollectionStore = create<CollectionState>(() => ({
     const projectMap = new Map(projects.filter(p => p).map(p => [p!.id, p!]));
 
     for (const col of collections) {
+      // dailyBlockLimit === 0 means skip this collection entirely today
+      if (col.dailyBlockLimit === 0) continue;
+
       // Get non-completed projects in collection order
       const remaining = col.projectIds
         .map(id => projectMap.get(id))

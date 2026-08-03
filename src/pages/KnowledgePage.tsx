@@ -39,13 +39,17 @@ export default function KnowledgePage() {
   ) ?? [];
 
   // Generate ALL R1-R10 calendar entries per knowledge point.
-  // ALWAYS derive dates from studyDate — stored reviewDates may have been
-  // corrupted by old advanceStage/handleError that recalculated from Date.now().
+  // Use stored reviewDates which are now kept in sync with actual review
+  // timing — past stages = actual completion dates, future = projected dates.
   const calendarItems: CalendarItem[] = useMemo(() => {
     const items: CalendarItem[] = [];
     for (const kp of knowledgePoints) {
       const color = subjectMap.get(kp.subjectId)?.color || '#0066cc';
-      const dates = calculateReviewDates(kp.studyDate);
+      // Use stored reviewDates (synced with actual reviews);
+      // fall back to theoretical calculation for legacy data.
+      const dates = kp.reviewDates.length === 10
+        ? kp.reviewDates
+        : calculateReviewDates(kp.studyDate);
       // Only show enabled stages (default: all enabled)
       const enabled = kp.enabledStages || Array.from({ length: 10 }, () => true);
       for (let i = 0; i < dates.length; i++) {
