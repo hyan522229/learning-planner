@@ -191,12 +191,36 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
                   value={point.currentStage}
                   onChange={async (e) => {
                     const newStage = Number(e.target.value);
-                    const nextReviewDate = newStage >= 10
-                      ? (point.reviewDates.length === 10 ? point.reviewDates[9] : 0)
-                      : Date.now() + REVIEW_INTERVALS[newStage] * DAY_MS;
+                    const now = Date.now();
+                    const dates = point.reviewDates.length === 10
+                      ? [...point.reviewDates]
+                      : calculateReviewDates(point.studyDate);
+
+                    let nextReviewDate: number;
+                    if (newStage >= 10) {
+                      nextReviewDate = dates[9];
+                    } else {
+                      const originalDate = dates[newStage];
+                      // If the original scheduled date for this stage is in the
+                      // past, the review is overdue — schedule it for tomorrow
+                      // instead of pushing it further into the future.
+                      if (originalDate < now) {
+                        nextReviewDate = now + DAY_MS;
+                        // Shift all future reviewDates forward by the delay so
+                        // the calendar reflects the actual postponed schedule.
+                        const shift = now - originalDate;
+                        for (let i = newStage; i < 10; i++) {
+                          dates[i] = dates[i] + shift;
+                        }
+                      } else {
+                        nextReviewDate = originalDate;
+                      }
+                    }
+
                     updateKnowledgePoint(point.id, {
                       currentStage: newStage,
                       nextReviewDate,
+                      reviewDates: dates,
                       status: newStage >= 10 ? 'completed' : 'active',
                       errorCount: 0,
                       errorAtStage: -1,
