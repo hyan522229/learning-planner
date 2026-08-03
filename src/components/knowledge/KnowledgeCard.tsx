@@ -6,7 +6,8 @@ import { formatDate } from '@/utils/date';
 import { Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui';
 import { Trash2, Minus, Plus, Eye } from 'lucide-react';
 import { useKnowledgeStore } from '@/stores/knowledgeStore';
-import { calculateReviewDates } from '@/engine/ebbinghaus';
+import { calculateReviewDates, DAY_MS } from '@/engine/ebbinghaus';
+import { REVIEW_INTERVALS } from '@/engine/constants';
 
 interface Props {
   point: KnowledgePoint;
@@ -178,6 +179,44 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
               {point.consecutiveCorrect > 0 && ` · 连续正确 ${point.consecutiveCorrect} 次`}
               {point.errorCount > 0 && ` · 当前出错 ${point.errorCount} 次`}
             </p>
+
+            {/* Manual stage correction — for fixing corrupted data */}
+            <div className="pt-2 border-t space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">手动修正阶段</p>
+              <p className="text-[11px] text-muted-foreground">
+                如果知识点阶段因程序错误被错误推进，可在此修正。选择正确的阶段后点击"应用"。
+              </p>
+              <div className="flex items-center gap-2">
+                <select
+                  value={point.currentStage}
+                  onChange={async (e) => {
+                    const newStage = Number(e.target.value);
+                    const nextReviewDate = newStage >= 10
+                      ? (point.reviewDates.length === 10 ? point.reviewDates[9] : 0)
+                      : Date.now() + REVIEW_INTERVALS[newStage] * DAY_MS;
+                    updateKnowledgePoint(point.id, {
+                      currentStage: newStage,
+                      nextReviewDate,
+                      status: newStage >= 10 ? 'completed' : 'active',
+                      errorCount: 0,
+                      errorAtStage: -1,
+                      consecutiveCorrect: Math.min(point.consecutiveCorrect, newStage),
+                    });
+                  }}
+                  className="text-sm border rounded px-2 py-1 bg-background"
+                >
+                  {Array.from({ length: 11 }, (_, i) => (
+                    <option key={i} value={i}>
+                      {i === 10 ? 'R10 (完成)' : `R${i + 1}`} — {i === 0 ? '从头开始' : i === 10 ? '全部完成' : `已完成 R1-R${i}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                ⚠ 修改阶段会立即生效，请确认选择正确的阶段。完成后建议重新生成今日计划。
+              </p>
+            </div>
+
             <p className="text-[11px] text-muted-foreground">
               黄色日期表示与理论计划有偏差（因推迟或提前复习）。取消勾选可跳过该阶段。
             </p>

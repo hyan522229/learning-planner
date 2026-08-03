@@ -139,7 +139,7 @@ function DonutChart({ slices, size = 280 }: { slices: PieSlice[]; size?: number 
 
       {/* Center text */}
       <text x={cx} y={cy - 5} textAnchor="middle" className="fill-foreground" fontSize={15} fontWeight={700}>
-        {total >= 60 ? `${(total / 60).toFixed(1)}h` : `${total}min`}
+        {rawTotal >= 60 ? `${(rawTotal / 60).toFixed(1)}h` : `${rawTotal}min`}
       </text>
       <text x={cx} y={cy + 13} textAnchor="middle" className="fill-muted-foreground" fontSize={10}>
         总时长

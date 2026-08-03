@@ -105,64 +105,67 @@ export async function generateFullPlan(input: PlanInput): Promise<FullPlanOutput
   let daysGenerated = 0;
   let allProjectsDone = false;
 
-  while (daysGenerated < MAX_DAYS && !allProjectsDone) {
-    const dayStart = startOfDayEpoch(new Date(currentDate));
+  try {
+    while (daysGenerated < MAX_DAYS && !allProjectsDone) {
+      const dayStart = startOfDayEpoch(new Date(currentDate));
 
-    // Build blocks for this day with project allocation
-    const result = await buildDayBlocks(
-      personaId,
-      dayStart,
-      environment,
-      settings,
-      projects,
-      projectRemaining,
-      true, // isFullPlan — advance nextReviewDate to simulate review completion
-    );
-
-    if (result.blocks.length > 0) {
-      // Sort and persist
-      result.blocks.sort((a, b) => a.timeSlotStart.localeCompare(b.timeSlotStart));
-      result.blocks.forEach((b, i) => b.sortOrder = i);
-
-      await db.blocks.bulkAdd(result.blocks);
-
-      const planId = generateId();
-      const dailyPlan: DailyPlan = {
-        id: planId,
+      // Build blocks for this day with project allocation
+      const result = await buildDayBlocks(
         personaId,
-        environmentId: environment.id,
-        date: dayStart,
-        blockIds: result.blocks.map(b => b.id),
-        availableMinutes: result.availableMinutes,
-        mandatoryMinutes: result.mandatoryMinutes,
-        newLearningMinutes: result.blocks
-          .filter(b => b.type === 'new_learning' || b.type === 'exercise')
-          .reduce((s, b) => s + b.estimatedDurationMinutes, 0),
-        status: 'active',
-        generatedAt: Date.now(),
-      };
+        dayStart,
+        environment,
+        settings,
+        projects,
+        projectRemaining,
+        true, // isFullPlan — advance nextReviewDate to simulate review completion
+      );
 
-      await db.dailyPlans.add(dailyPlan);
-      dailyPlans.set(dayStart, { plan: dailyPlan, blocks: result.blocks });
+      if (result.blocks.length > 0) {
+        // Sort and persist
+        result.blocks.sort((a, b) => a.timeSlotStart.localeCompare(b.timeSlotStart));
+        result.blocks.forEach((b, i) => b.sortOrder = i);
+
+        await db.blocks.bulkAdd(result.blocks);
+
+        const planId = generateId();
+        const dailyPlan: DailyPlan = {
+          id: planId,
+          personaId,
+          environmentId: environment.id,
+          date: dayStart,
+          blockIds: result.blocks.map(b => b.id),
+          availableMinutes: result.availableMinutes,
+          mandatoryMinutes: result.mandatoryMinutes,
+          newLearningMinutes: result.blocks
+            .filter(b => b.type === 'new_learning' || b.type === 'exercise')
+            .reduce((s, b) => s + b.estimatedDurationMinutes, 0),
+          status: 'active',
+          generatedAt: Date.now(),
+        };
+
+        await db.dailyPlans.add(dailyPlan);
+        dailyPlans.set(dayStart, { plan: dailyPlan, blocks: result.blocks });
+      }
+
+      warnings.push(...result.warnings);
+
+      // Check if all projects are done
+      allProjectsDone = Array.from(projectRemaining.values()).every(v => v <= 0);
+
+      // Move to next day
+      currentDate = dayStart + 86400000;
+      daysGenerated++;
     }
-
-    warnings.push(...result.warnings);
-
-    // Check if all projects are done
-    allProjectsDone = Array.from(projectRemaining.values()).every(v => v <= 0);
-
-    // Move to next day
-    currentDate = dayStart + 86400000;
-    daysGenerated++;
-  }
-
-  // Restore knowledge point & error problem state so simulation doesn't
-  // permanently advance stages.
-  for (const [id, state] of savedKPStates) {
-    await db.knowledgePoints.update(id, { currentStage: state.currentStage, nextReviewDate: state.nextReviewDate, updatedAt: Date.now() });
-  }
-  for (const [id, state] of savedErrorStates) {
-    await db.errorProblems.update(id, { nextReviewDate: state.nextReviewDate });
+  } finally {
+    // ALWAYS restore knowledge point & error problem state — even if
+    // simulation throws. Without this, any error during generation would
+    // permanently corrupt KP stages and nextReviewDate.
+    for (const [id, state] of savedKPStates) {
+      await db.knowledgePoints.update(id, { currentStage: state.currentStage, nextReviewDate: state.nextReviewDate, updatedAt: Date.now() });
+    }
+    for (const [id, state] of savedErrorStates) {
+      await db.errorProblems.update(id, { nextReviewDate: state.nextReviewDate });
+    }
   }
 
   // Merge in completed blocks that survived deletion so weekly/monthly views
