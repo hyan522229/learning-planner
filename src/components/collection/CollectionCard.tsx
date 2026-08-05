@@ -70,6 +70,8 @@ export function CollectionCard({
 }: CollectionCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showAddExisting, setShowAddExisting] = useState(false);
+  const [addSelectedIds, setAddSelectedIds] = useState<string[]>([]);
 
   // ---- Derived ----
   const completionPct = progress?.completionProgress ?? 0;
@@ -79,6 +81,10 @@ export function CollectionCard({
   const totalUnits = progress?.totalUnits ?? 0;
 
   const projectMap = new Map(projects.map((p) => [p.id, p]));
+
+  // Standalone projects available to add (those not already in this collection)
+  const collectionProjectIds = new Set(collection.projectIds);
+  const standaloneProjects = (allProjects || []).filter(p => !collectionProjectIds.has(p.id));
 
   const getProjectProgress = (p: Project): number =>
     p.total > 0 ? Math.min(100, Math.round((p.completed / p.total) * 100)) : 0;
@@ -298,17 +304,71 @@ export function CollectionCard({
                   })}
                 </AnimatePresence>
 
-                {/* Add project button */}
-                {onCreateProjectFull && (
-                  <button
-                    type="button"
-                    onClick={onCreateProjectFull}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-dashed border-muted-foreground/25 text-sm text-muted-foreground hover:border-brand-400/40 hover:text-brand-600 transition-colors"
-                  >
-                    <Plus size={16} />
-                    添加项目
-                  </button>
-                )}
+                {/* Add project buttons */}
+                <div className="space-y-2">
+                  {onCreateProjectFull && (
+                    <button
+                      type="button"
+                      onClick={onCreateProjectFull}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-dashed border-muted-foreground/25 text-sm text-muted-foreground hover:border-brand-400/40 hover:text-brand-600 transition-colors"
+                    >
+                      <Plus size={16} />
+                      新建项目
+                    </button>
+                  )}
+
+                  {/* Select from existing standalone projects */}
+                  {standaloneProjects.length > 0 && onAddProjects && (
+                    <>
+                      {!showAddExisting ? (
+                        <button
+                          type="button"
+                          onClick={() => { setShowAddExisting(true); setAddSelectedIds([]); }}
+                          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-muted-foreground/25 text-sm text-muted-foreground hover:border-brand-400/40 hover:text-brand-600 transition-colors"
+                        >
+                          <Plus size={14} />
+                          从已有项目中选择
+                        </button>
+                      ) : (
+                        <div className="border rounded-lg p-2 space-y-1 max-h-40 overflow-y-auto">
+                          {standaloneProjects.map(p => (
+                            <label key={p.id} className="flex items-center gap-2 text-sm py-1 px-1 cursor-pointer hover:bg-muted/50 rounded">
+                              <input
+                                type="checkbox"
+                                checked={addSelectedIds.includes(p.id)}
+                                onChange={() => setAddSelectedIds(prev =>
+                                  prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id]
+                                )}
+                                className="rounded w-3.5 h-3.5"
+                              />
+                              <span className="truncate">{p.name}</span>
+                            </label>
+                          ))}
+                          <div className="flex gap-2 pt-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setShowAddExisting(false)}
+                            >
+                              取消
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={addSelectedIds.length === 0}
+                              onClick={() => {
+                                onAddProjects(addSelectedIds);
+                                setAddSelectedIds([]);
+                                setShowAddExisting(false);
+                              }}
+                            >
+                              添加选中 ({addSelectedIds.length})
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </motion.div>
           )}

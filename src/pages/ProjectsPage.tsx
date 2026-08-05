@@ -149,7 +149,7 @@ export default function ProjectsPage() {
   }, []);
 
   const handleCreateCollection = useCallback(async () => {
-    if (!colName.trim() || !activePersonaId || colSelectedIds.length === 0) return;
+    if (!colName.trim() || !activePersonaId) return;
     await addCollection({
       personaId: activePersonaId,
       name: colName.trim(),
@@ -346,7 +346,7 @@ export default function ProjectsPage() {
                     collection={col}
                     projects={colProjects}
                     progress={progress}
-                    allProjects={activeProjects}
+                    allProjects={standaloneActiveProjects}
                     onAddProjects={(ids) => handleAddProjectsToCol(col.id, ids)}
                     onRemoveProject={(pid) => handleRemoveProjectFromCol(col.id, pid)}
                     onMoveProject={(pid, dir) => handleMoveProjectInCol(col.id, pid, dir)}
@@ -801,7 +801,7 @@ export default function ProjectsPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label>选择项目（按顺序）</Label>
+              <Label>选择项目（可选，可创建空合集后单独添加）</Label>
               <div className="max-h-48 overflow-y-auto space-y-1 border rounded-lg p-2">
                 {projects.filter(p => p.status === 'active' && !allCollectionProjectIds.has(p.id)).map(p => (
                   <label key={p.id} className="flex items-center gap-2 text-sm py-1 cursor-pointer">
@@ -827,7 +827,7 @@ export default function ProjectsPage() {
             )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setShowCreateCollection(false)}>取消</Button>
-              <Button onClick={handleCreateCollection} disabled={!colName.trim() || colSelectedIds.length === 0}>创建合集</Button>
+              <Button onClick={handleCreateCollection} disabled={!colName.trim()}>创建合集</Button>
             </div>
           </div>
         </DialogContent>
