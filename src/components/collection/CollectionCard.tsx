@@ -59,6 +59,8 @@ export function CollectionCard({
   collection,
   projects,
   progress,
+  allProjects,
+  onAddProjects,
   onRemoveProject,
   onMoveProject,
   onCreateProjectFull,
