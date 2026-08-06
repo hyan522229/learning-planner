@@ -201,20 +201,25 @@ export const useKnowledgeStore = create<KnowledgeState>(() => ({
 
   /** Sync stageCompletedAt from completed review blocks into knowledge points. */
   syncCompletionRecords: async (personaId) => {
+    // Fetch ALL completed blocks for this persona (not just review type, in
+    // case some blocks have the wrong type). We filter by name pattern below.
     const blocks = await db.blocks
       .where({ personaId, status: 'completed' })
-      .filter(b => b.type === 'review' && (b.knowledgePointIds?.length ?? 0) > 0)
       .toArray();
 
     // Group by KP ID: for each KP, collect { stageIndex, completedAt }
     const byKp = new Map<string, { stageIndex: number; completedAt: number }[]>();
     for (const b of blocks) {
-      const kpIds = b.knowledgePointIds || [];
-      // Parse R number from block name like "R3 知识点名"
-      const rMatch = b.name.match(/^R(\d+)\s/);
+      // Try to get KP IDs from the block's knowledgePointIds field
+      const kpIds: string[] = b.knowledgePointIds || [];
+      if (kpIds.length === 0) continue;
+
+      // Parse R number from block name like "R3 知识点名" or "R10 xxx"
+      const rMatch = b.name.match(/R(\d+)\s/);
       if (!rMatch) continue;
       const stageIndex = Number(rMatch[1]) - 1; // R3 → index 2
       if (stageIndex < 0 || stageIndex >= 10 || !b.completedAt) continue;
+
       for (const kpId of kpIds) {
         if (!byKp.has(kpId)) byKp.set(kpId, []);
         byKp.get(kpId)!.push({ stageIndex, completedAt: b.completedAt });

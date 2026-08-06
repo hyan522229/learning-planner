@@ -30,6 +30,7 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
   const updateReviewDuration = useKnowledgeStore(s => s.updateReviewDuration);
   const updateKnowledgePoint = useKnowledgeStore(s => s.updateKnowledgePoint);
   const restartFromStage = useKnowledgeStore(s => s.restartFromStage);
+  const syncCompletionRecords = useKnowledgeStore(s => s.syncCompletionRecords);
   const [showInspector, setShowInspector] = useState(false);
   const [showRestart, setShowRestart] = useState(false);
   const [restartTarget, setRestartTarget] = useState<number | null>(null);
@@ -68,7 +69,7 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className={cn(
-          'flex items-center gap-3 px-4 py-3 rounded-xl border bg-card transition-all duration-150 hover:bg-muted/30',
+          'flex items-center gap-3 px-4 py-3 rounded-xl border bg-card transition-all duration-150 hover:bg-muted/50',
           isDue && 'ring-2 ring-amber-500/50 border-amber-500/30',
           isCompleted && 'opacity-60'
         )}
@@ -131,46 +132,26 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
           </button>
 
           {/* ── Divider ── */}
-          <span className="w-px h-5 bg-border mx-1" />
+          <span className="w-px h-5 bg-border mx-2" />
 
           {/* ── Destructive buttons (with protection) ── */}
           {point.currentStage > 0 && (
-            confirmDelete ? null : (
-              <button
-                onClick={() => { setShowRestart(v => !v); setRestartTarget(null); }}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-90 transition-all"
-                title="重新开始"
-              >
-                <RefreshCw size={14} />
-              </button>
-            )
-          )}
-
-          {confirmDelete ? (
-            <div className="flex items-center gap-1">
-              <span className="text-[10px] text-destructive">确认删除?</span>
-              <button
-                onClick={() => { onDelete(point.id); setConfirmDelete(false); }}
-                className="p-1 rounded text-destructive hover:bg-destructive/10 active:scale-90 transition-all"
-              >
-                <Trash2 size={14} />
-              </button>
-              <button
-                onClick={() => setConfirmDelete(false)}
-                className="p-1 rounded text-muted-foreground hover:bg-muted active:scale-90 transition-all"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ) : (
             <button
-              onClick={() => setConfirmDelete(true)}
-              className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:scale-90 transition-all"
-              title="删除知识点"
+              onClick={() => { setShowRestart(v => !v); setRestartTarget(null); }}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-90 transition-all"
+              title="重新开始"
             >
-              <Trash2 size={14} />
+              <RefreshCw size={14} />
             </button>
           )}
+
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:scale-90 transition-all"
+            title="删除知识点"
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       </motion.div>
 
@@ -222,7 +203,30 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
             )}
           </div>
           <DialogFooter>
+            <Button variant="outline" size="sm" onClick={async () => {
+              if (!point.personaId) return;
+              await syncCompletionRecords(point.personaId);
+              setShowLog(false);
+            }}>
+              从报告同步记录
+            </Button>
             <Button variant="outline" onClick={() => setShowLog(false)}>关闭</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>确认删除</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            确定要删除知识点「{point.name}」吗？此操作不可撤销，所有复习记录将一并删除。
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>取消</Button>
+            <Button variant="destructive" onClick={() => { onDelete(point.id); setConfirmDelete(false); }}>确认删除</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
