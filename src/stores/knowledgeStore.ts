@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { db } from '@/db';
 import { generateId } from '@/utils/id';
-import { calculateReviewDates, advanceStage, handleError, repairKnowledgePoint } from '@/engine/ebbinghaus';
+import { calculateReviewDates, advanceStage, handleError, repairKnowledgePoint, DAY_MS } from '@/engine/ebbinghaus';
 import type { KnowledgePoint } from '@/types';
 
 interface ReviewResult {
@@ -22,6 +22,7 @@ interface KnowledgeState {
   deleteKnowledgePoint: (id: string) => Promise<void>;
   shiftAllDates: (personaId: string, days: number) => Promise<void>;
   repairAllKnowledgePoints: (personaId: string) => Promise<number>;
+  restartFromStage: (id: string, fromStage: number) => Promise<void>;
 }
 
 export const useKnowledgeStore = create<KnowledgeState>(() => ({
@@ -53,15 +54,31 @@ export const useKnowledgeStore = create<KnowledgeState>(() => ({
     const point = await db.knowledgePoints.get(id);
     if (!point) throw new Error('知识点未找到');
 
+    // Guard: cannot complete a review whose scheduled date is still in the future
+    if (point.nextReviewDate > Date.now() + 60_000) {
+      throw new Error('该复习节点尚未到期，无法提前完成');
+    }
+
     const isCorrect = rating >= 4;
+    const completedStage = point.currentStage;
     const result = isCorrect
       ? advanceStage(point, allowSkip)
       : handleError(point);
 
+    // Record the actual completion timestamp for this stage
+    const now = Date.now();
+    const sca = point.stageCompletedAt && point.stageCompletedAt.length === 10
+      ? [...point.stageCompletedAt]
+      : Array.from({ length: 10 }, () => null as number | null);
+    if (completedStage >= 0 && completedStage < 10) {
+      sca[completedStage] = now;
+    }
+
     await db.knowledgePoints.update(id, {
       ...result,
+      stageCompletedAt: sca,
       masteryRating: rating,
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
 
     return { isCorrect, newStage: result.currentStage, action: result.action, message: result.message };
@@ -148,5 +165,36 @@ export const useKnowledgeStore = create<KnowledgeState>(() => ({
       }
     }
     return repairedCount;
+  },
+
+  /** Explicitly restart review from an earlier stage (user fell behind). */
+  restartFromStage: async (id, fromStage) => {
+    const point = await db.knowledgePoints.get(id);
+    if (!point) throw new Error('知识点未找到');
+
+    const theoretical = calculateReviewDates(point.studyDate);
+    // Clear completion records from the restart stage onward
+    const sca = point.stageCompletedAt && point.stageCompletedAt.length === 10
+      ? [...point.stageCompletedAt]
+      : Array.from({ length: 10 }, () => null as number | null);
+    for (let i = fromStage; i < 10; i++) {
+      sca[i] = null;
+    }
+
+    const now = Date.now();
+    const theoreticalDate = theoretical[fromStage];
+    const nextReviewDate = theoreticalDate < now ? now + DAY_MS : theoreticalDate;
+
+    await db.knowledgePoints.update(id, {
+      currentStage: fromStage,
+      nextReviewDate,
+      stageCompletedAt: sca,
+      restartedFromStage: fromStage,
+      errorCount: 0,
+      errorAtStage: -1,
+      consecutiveCorrect: 0,
+      status: 'active',
+      updatedAt: now,
+    });
   },
 }));

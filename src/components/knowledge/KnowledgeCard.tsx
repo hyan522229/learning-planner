@@ -29,7 +29,9 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
   const isCompleted = point.status === 'completed';
   const updateReviewDuration = useKnowledgeStore(s => s.updateReviewDuration);
   const updateKnowledgePoint = useKnowledgeStore(s => s.updateKnowledgePoint);
+  const restartFromStage = useKnowledgeStore(s => s.restartFromStage);
   const [showInspector, setShowInspector] = useState(false);
+  const [restartTarget, setRestartTarget] = useState<number | null>(null);
 
   const handleChangeDuration = (delta: number) => {
     const next = Math.max(1, Math.min(120, (point.reviewDurationMinutes || 10) + delta));
@@ -48,6 +50,9 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
   // past = theoretical, current = nextReviewDate, future = projected from nextReviewDate
   const displayDates = Array.from({ length: 10 }, (_, i) => projectedStageDate(point, i));
   const theoreticalDates = calculateReviewDates(point.studyDate);
+  const sca = point.stageCompletedAt && point.stageCompletedAt.length === 10
+    ? point.stageCompletedAt
+    : Array.from({ length: 10 }, () => null as number | null);
   const enabled = point.enabledStages && point.enabledStages.length === 10
     ? point.enabledStages
     : Array.from({ length: 10 }, () => true);
@@ -132,8 +137,8 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
           <div className="space-y-3">
             <div className="grid grid-cols-[auto_1fr_1fr_auto] gap-2 text-xs font-medium text-muted-foreground px-1">
               <span className="w-12">阶段</span>
-              <span>实际/预计日期</span>
-              <span>理论日期(参考)</span>
+              <span>日期（完成于）</span>
+              <span>理论(参考)</span>
               <span className="w-10 text-center">启用</span>
             </div>
             {Array.from({ length: 10 }, (_, i) => {
@@ -160,10 +165,20 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
                     R{i + 1}
                     {isCurrent && ' ←'}
                   </span>
-                  <span className={dateColor}>
-                    {formatDate(displayDates[i], 'yyyy/MM/dd')}
-                    {isPast && ' ✓'}
-                  </span>
+                  <div>
+                    <span className={dateColor}>
+                      {formatDate(displayDates[i], 'yyyy/MM/dd')}
+                      {isPast && ' ✓'}
+                    </span>
+                    {isPast && sca[i] && (
+                      <span className="text-[10px] text-muted-foreground block">
+                        完成于 {formatDate(sca[i]!, 'MM/dd HH:mm')}
+                      </span>
+                    )}
+                    {isPast && !sca[i] && (
+                      <span className="text-[10px] text-amber-500 block">无完成记录</span>
+                    )}
+                  </div>
                   <span className={cn(
                     'text-xs',
                     shifted ? 'text-amber-600/60 dark:text-amber-400/60' : 'text-muted-foreground',
@@ -185,16 +200,47 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
             <p className="text-xs text-muted-foreground pt-1 border-t">
               当前阶段：{stageLabels[point.currentStage]}
               {point.status === 'completed' ? ' · 已完成全部复习' : ` · 下次复习 ${formatDate(point.nextReviewDate, 'yyyy/MM/dd')}`}
+              {point.restartedFromStage !== undefined && (
+                <span className="text-amber-600 dark:text-amber-400">
+                  {' '}· 从 R{point.restartedFromStage + 1} 重新开始
+                </span>
+              )}
               {point.consecutiveCorrect > 0 && ` · 连续正确 ${point.consecutiveCorrect} 次`}
               {point.errorCount > 0 && ` · 当前出错 ${point.errorCount} 次`}
             </p>
 
-            {/* Manual stage correction — for fixing corrupted data */}
+            {/* Restart from earlier stage (catching up after long break) */}
+            {point.currentStage > 0 && (
+              <div className="pt-2 border-t space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">因拖延过久重新开始</p>
+                <p className="text-[11px] text-muted-foreground">
+                  从中断的节点重新开始复习，会清除该节点及之后的完成记录。
+                </p>
+                {restartTarget !== null ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">从 <strong>R{restartTarget + 1}</strong> 重新开始？</span>
+                    <Button size="sm" variant="destructive" onClick={() => { restartFromStage(point.id, restartTarget); setRestartTarget(null); }}>确认</Button>
+                    <Button size="sm" variant="outline" onClick={() => setRestartTarget(null)}>取消</Button>
+                  </div>
+                ) : (
+                  <select
+                    value=""
+                    onChange={(e) => { const v = Number(e.target.value); if (v >= 0) setRestartTarget(v); }}
+                    className="text-sm border rounded px-2 py-1 bg-background"
+                  >
+                    <option value="">选择重新开始的节点...</option>
+                    {Array.from({ length: point.currentStage }, (_, i) => (
+                      <option key={i} value={i}>R{i + 1}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {/* Manual stage correction (emergency only) */}
             <div className="pt-2 border-t space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">手动修正阶段</p>
-              <p className="text-[11px] text-muted-foreground">
-                如果知识点阶段因程序错误被错误推进，可在此修正。选择正确的阶段后点击"应用"。
-              </p>
+              <p className="text-xs font-medium text-muted-foreground">手动修正阶段（应急）</p>
+              <p className="text-[11px] text-muted-foreground">仅在数据损坏时使用。</p>
               <div className="flex items-center gap-2">
                 <select
                   value={point.currentStage}
@@ -202,19 +248,13 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
                     const newStage = Number(e.target.value);
                     const now = Date.now();
                     const theoretical = calculateReviewDates(point.studyDate);
-
                     let nextReviewDate: number;
                     if (newStage >= 10) {
                       nextReviewDate = theoretical[9];
                     } else {
-                      // Compare the theoretical date for this stage with now.
-                      // If it's in the past, the review is overdue → schedule
-                      // for tomorrow. Otherwise keep the theoretical date.
                       const planned = theoretical[newStage];
                       nextReviewDate = planned < now ? now + DAY_MS : planned;
                     }
-
-                    // Keep reviewDates as pure theoretical from studyDate
                     updateKnowledgePoint(point.id, {
                       currentStage: newStage,
                       nextReviewDate,
@@ -234,13 +274,10 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
                   ))}
                 </select>
               </div>
-              <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                ⚠ 修改阶段会立即生效，请确认选择正确的阶段。完成后建议重新生成今日计划。
-              </p>
             </div>
 
             <p className="text-[11px] text-muted-foreground">
-              黄色日期表示与理论计划有偏差（因推迟或提前复习）。取消勾选可跳过该阶段。
+              橙色日期 = 因推迟/提前而与理论计划有偏差。取消勾选 = 跳过该阶段。"无完成记录" = 数据异常。
             </p>
           </div>
           <DialogFooter>

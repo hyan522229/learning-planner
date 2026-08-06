@@ -42,6 +42,10 @@ export interface KnowledgePoint {
   errorAtStage: number;
   status: KnowledgeStatus;
   enabledStages?: boolean[];
+  /** Timestamp when each R stage was actually completed (index = stage). null = not yet completed. */
+  stageCompletedAt?: (number | null)[];
+  /** If the user explicitly restarted from an earlier stage, this records which stage. */
+  restartedFromStage?: number;
   createdAt: number;
   updatedAt: number;
 }
