@@ -4,30 +4,63 @@ import { REVIEW_INTERVALS } from './constants';
 export const DAY_MS = 86400000;
 
 /**
- * Repair a knowledge point's reviewDates if they were created by the old
- * (absolute-offset) algorithm. Does NOT force past-due reviews to today —
- * the daily planner already queries `nextReviewDate <= dayEnd` which
- * naturally catches overdue items.
+ * Repair a knowledge point's reviewDates if corrupted by old algorithms.
+ * Two known corruptions are detected:
+ * 1. Old absolute-offset algorithm (R2 date = studyDate + 2 days).
+ * 2. Double-interval bug in projectFutureDates (future dates shifted too far).
+ *
+ * Repair rebuilds reviewDates from nextReviewDate forward so the calendar
+ * shows correct projected dates. Does NOT change nextReviewDate itself.
  */
 export function repairKnowledgePoint(point: KnowledgePoint): {
   reviewDates: number[];
   nextReviewDate: number;
   wasBroken: boolean;
 } {
-  const correctReviewDates = calculateReviewDates(point.studyDate);
+  const theoretical = calculateReviewDates(point.studyDate);
+  const stage = Math.min(point.currentStage, REVIEW_INTERVALS.length - 1);
+  const stored = point.reviewDates;
 
-  // Detect if dates were from the old (broken) absolute-offset algorithm.
+  // Detect corruption #1: old absolute-offset algorithm
   const oldR2 = point.studyDate + 2 * DAY_MS;
-  const actualR2 = point.reviewDates[1];
-  const wasBroken = Math.abs(actualR2 - oldR2) < DAY_MS && Math.abs(actualR2 - correctReviewDates[1]) >= DAY_MS;
+  const actualR2 = stored.length === 10 ? stored[1] : 0;
+  const broken1 = Math.abs(actualR2 - oldR2) < DAY_MS && Math.abs(actualR2 - theoretical[1]) >= DAY_MS;
 
-  if (wasBroken) {
-    // Fix the reviewDates array and recompute nextReviewDate from the
-    // correct cumulative dates at the current stage.
-    const stage = Math.min(point.currentStage, REVIEW_INTERVALS.length - 1);
+  // Detect corruption #2: double-interval (stored date for current stage
+  // is significantly further in the future than nextReviewDate suggests)
+  let broken2 = false;
+  if (!broken1 && stored.length === 10 && stage < 10) {
+    const storedStageDate = stored[stage];
+    // If the stored date for the current stage is more than 2x the expected
+    // interval from now compared to nextReviewDate, it's double-interval corruption
+    const expectedGap = point.nextReviewDate - Date.now();
+    const storedGap = storedStageDate - Date.now();
+    if (expectedGap > 0 && storedGap > expectedGap * 1.5) {
+      broken2 = true;
+    }
+  }
+
+  if (broken1) {
     return {
-      reviewDates: correctReviewDates,
-      nextReviewDate: correctReviewDates[stage],
+      reviewDates: theoretical,
+      nextReviewDate: theoretical[stage],
+      wasBroken: true,
+    };
+  }
+
+  if (broken2 && stage < 10) {
+    // Rebuild: past stages as-is, current stage = nextReviewDate,
+    // future stages projected correctly from nextReviewDate.
+    const rebuilt = [...stored];
+    rebuilt[stage] = point.nextReviewDate;
+    let cursor = point.nextReviewDate;
+    for (let i = stage + 1; i < REVIEW_INTERVALS.length; i++) {
+      cursor = cursor + REVIEW_INTERVALS[i] * DAY_MS;
+      rebuilt[i] = cursor;
+    }
+    return {
+      reviewDates: rebuilt,
+      nextReviewDate: point.nextReviewDate,
       wasBroken: true,
     };
   }
@@ -208,7 +241,9 @@ function buildSyncedReviewDates(
 
 /**
  * Project future reviewDates from `fromStage` onward based on `baseDate`
- * and the remaining REVIEW_INTERVALS. Past and current stages are preserved.
+ * and the remaining REVIEW_INTERVALS.
+ * `baseDate` is the already-computed date for `fromStage` itself, so we
+ * set it directly and project intervals for stages after it.
  */
 function projectFutureDates(
   dates: number[],
@@ -216,8 +251,9 @@ function projectFutureDates(
   baseDate: number,
 ): number[] {
   const result = [...dates];
+  result[fromStage] = baseDate;
   let cursor = baseDate;
-  for (let i = fromStage; i < REVIEW_INTERVALS.length; i++) {
+  for (let i = fromStage + 1; i < REVIEW_INTERVALS.length; i++) {
     cursor = cursor + REVIEW_INTERVALS[i] * DAY_MS;
     result[i] = cursor;
   }
