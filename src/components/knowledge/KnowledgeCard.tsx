@@ -6,7 +6,7 @@ import { formatDate } from '@/utils/date';
 import { Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui';
 import { Trash2, Minus, Plus, Eye } from 'lucide-react';
 import { useKnowledgeStore } from '@/stores/knowledgeStore';
-import { calculateReviewDates, DAY_MS } from '@/engine/ebbinghaus';
+import { calculateReviewDates, projectedStageDate, DAY_MS } from '@/engine/ebbinghaus';
 import { REVIEW_INTERVALS } from '@/engine/constants';
 
 interface Props {
@@ -44,10 +44,9 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
     updateKnowledgePoint(point.id, { enabledStages: enabled });
   };
 
-  // Dates to show: stored (synced) or theoretical fallback
-  const actualDates = point.reviewDates.length === 10
-    ? point.reviewDates
-    : calculateReviewDates(point.studyDate);
+  // Dates for each stage using projectedStageDate:
+  // past = theoretical, current = nextReviewDate, future = projected from nextReviewDate
+  const displayDates = Array.from({ length: 10 }, (_, i) => projectedStageDate(point, i));
   const theoreticalDates = calculateReviewDates(point.studyDate);
   const enabled = point.enabledStages && point.enabledStages.length === 10
     ? point.enabledStages
@@ -140,13 +139,20 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
             {Array.from({ length: 10 }, (_, i) => {
               const isPast = i < point.currentStage;
               const isCurrent = i === point.currentStage;
-              const dateDiff = actualDates[i] !== theoreticalDates[i];
+              const isFuture = i > point.currentStage;
+              const shifted = displayDates[i] !== theoreticalDates[i];
+              // Past = actual (black), future/projected = amber when shifted
+              const dateColor = isPast
+                ? 'text-foreground'
+                : shifted
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : 'text-foreground';
               return (
                 <div
                   key={i}
                   className={cn(
                     'grid grid-cols-[auto_1fr_1fr_auto] gap-2 items-center px-2 py-1.5 rounded text-sm',
-                    isPast && 'bg-muted/30 text-muted-foreground',
+                    isPast && 'bg-muted/30',
                     isCurrent && 'bg-brand-50 dark:bg-brand-950/30 font-medium',
                   )}
                 >
@@ -154,11 +160,14 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
                     R{i + 1}
                     {isCurrent && ' ←'}
                   </span>
-                  <span className={cn(dateDiff && 'text-amber-600 dark:text-amber-400')}>
-                    {formatDate(actualDates[i], 'yyyy/MM/dd')}
+                  <span className={dateColor}>
+                    {formatDate(displayDates[i], 'yyyy/MM/dd')}
                     {isPast && ' ✓'}
                   </span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className={cn(
+                    'text-xs',
+                    shifted ? 'text-amber-600/60 dark:text-amber-400/60' : 'text-muted-foreground',
+                  )}>
                     {formatDate(theoreticalDates[i], 'yyyy/MM/dd')}
                     <span className="text-[10px] ml-1 opacity-60">{CUMULATIVE_LABELS[i]}</span>
                   </span>
@@ -192,35 +201,24 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
                   onChange={async (e) => {
                     const newStage = Number(e.target.value);
                     const now = Date.now();
-                    const dates = point.reviewDates.length === 10
-                      ? [...point.reviewDates]
-                      : calculateReviewDates(point.studyDate);
+                    const theoretical = calculateReviewDates(point.studyDate);
 
                     let nextReviewDate: number;
                     if (newStage >= 10) {
-                      nextReviewDate = dates[9];
+                      nextReviewDate = theoretical[9];
                     } else {
-                      const originalDate = dates[newStage];
-                      // If the original scheduled date for this stage is in the
-                      // past, the review is overdue — schedule it for tomorrow
-                      // instead of pushing it further into the future.
-                      if (originalDate < now) {
-                        nextReviewDate = now + DAY_MS;
-                        // Shift all future reviewDates forward by the delay so
-                        // the calendar reflects the actual postponed schedule.
-                        const shift = now - originalDate;
-                        for (let i = newStage; i < 10; i++) {
-                          dates[i] = dates[i] + shift;
-                        }
-                      } else {
-                        nextReviewDate = originalDate;
-                      }
+                      // Compare the theoretical date for this stage with now.
+                      // If it's in the past, the review is overdue → schedule
+                      // for tomorrow. Otherwise keep the theoretical date.
+                      const planned = theoretical[newStage];
+                      nextReviewDate = planned < now ? now + DAY_MS : planned;
                     }
 
+                    // Keep reviewDates as pure theoretical from studyDate
                     updateKnowledgePoint(point.id, {
                       currentStage: newStage,
                       nextReviewDate,
-                      reviewDates: dates,
+                      reviewDates: theoretical,
                       status: newStage >= 10 ? 'completed' : 'active',
                       errorCount: 0,
                       errorAtStage: -1,

@@ -11,7 +11,7 @@ import { ReviewCalendar, type CalendarItem } from '@/components/knowledge/Review
 import { usePersonaStore } from '@/stores/personaStore';
 import { useSubjectStore } from '@/stores/subjectStore';
 import { db } from '@/db';
-import { calculateReviewDates } from '@/engine/ebbinghaus';
+import { calculateReviewDates, projectedStageDate } from '@/engine/ebbinghaus';
 
 export default function KnowledgePage() {
   const [showForm, setShowForm] = useState(false);
@@ -38,29 +38,24 @@ export default function KnowledgePage() {
     [activePersonaId]
   ) ?? [];
 
-  // Generate ALL R1-R10 calendar entries per knowledge point.
-  // Use stored reviewDates which are now kept in sync with actual review
-  // timing — past stages = actual completion dates, future = projected dates.
+  // Calendar entries: for each stage, compute the correct display date.
+  // Past stages (i < currentStage): theoretical date (original plan).
+  // Current stage (i === currentStage): nextReviewDate (actual pending).
+  // Future stages (i > currentStage): projected from nextReviewDate.
   const calendarItems: CalendarItem[] = useMemo(() => {
     const items: CalendarItem[] = [];
     for (const kp of knowledgePoints) {
       const color = subjectMap.get(kp.subjectId)?.color || '#0066cc';
-      // Use stored reviewDates (synced with actual reviews);
-      // fall back to theoretical calculation for legacy data.
-      const dates = kp.reviewDates.length === 10
-        ? kp.reviewDates
-        : calculateReviewDates(kp.studyDate);
-      // Only show enabled stages (default: all enabled)
       const enabled = kp.enabledStages || Array.from({ length: 10 }, () => true);
-      for (let i = 0; i < dates.length; i++) {
-        if (!enabled[i]) continue; // skip disabled stages
+      for (let i = 0; i < 10; i++) {
+        if (!enabled[i]) continue;
         const stageStatus: CalendarItem['stageStatus'] =
           i < kp.currentStage ? 'past' :
           i === kp.currentStage ? 'current' : 'future';
         items.push({
           id: `${kp.id}-r${i}`,
           name: kp.name,
-          date: dates[i],
+          date: projectedStageDate(kp, i),
           color,
           stage: i,
           stageStatus,
