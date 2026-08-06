@@ -46,6 +46,8 @@ export interface KnowledgePoint {
   stageCompletedAt?: (number | null)[];
   /** If the user explicitly restarted from an earlier stage, this records which stage. */
   restartedFromStage?: number;
+  /** Optional grouping: the project collection this KP belongs to (display-only). */
+  knowledgeGroupId?: string;
   createdAt: number;
   updatedAt: number;
 }

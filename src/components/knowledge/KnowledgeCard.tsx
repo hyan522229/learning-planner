@@ -14,6 +14,7 @@ interface Props {
   subjectName: string;
   subjectColor: string;
   onDelete: (id: string) => void;
+  onMoveToGroup?: () => void;
 }
 
 const stageLabels: Record<number, string> = {
@@ -24,7 +25,7 @@ const stageLabels: Record<number, string> = {
 /** Theoretical dates from study date — for reference comparison in the inspector */
 const CUMULATIVE_LABELS = ['R1(第1天)','R2(第3天)','R3(第7天)','R4(第14天)','R5(第29天)','R6(第59天)','R7(第119天)','R8(第239天)','R9(第479天)','R10(第844天)'];
 
-export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Props) {
+export function KnowledgeCard({ point, subjectName, subjectColor, onDelete, onMoveToGroup }: Props) {
   const isDue = point.status === 'active' && point.nextReviewDate <= new Date().getTime();
   const isCompleted = point.status === 'completed';
   const updateReviewDuration = useKnowledgeStore(s => s.updateReviewDuration);
@@ -92,6 +93,15 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
             <span>{stageLabels[point.currentStage] ?? `R${point.currentStage}`}</span>
             <span>·</span>
             <span>下次 {formatDate(point.nextReviewDate, 'MM/dd')}</span>
+            {onMoveToGroup && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onMoveToGroup(); }}
+                className="text-[10px] text-brand-500 hover:text-brand-700 hover:underline ml-1"
+                title="移动到合集"
+              >
+                归类
+              </button>
+            )}
           </div>
         </div>
 

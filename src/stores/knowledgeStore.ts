@@ -12,7 +12,7 @@ interface ReviewResult {
 }
 
 interface KnowledgeState {
-  addKnowledgePoint: (data: { personaId: string; subjectId: string; name: string; studyDate: number; reviewDurationMinutes?: number; initialStage?: number; enabledStages?: boolean[] }) => Promise<string>;
+  addKnowledgePoint: (data: { personaId: string; subjectId: string; name: string; studyDate: number; reviewDurationMinutes?: number; initialStage?: number; enabledStages?: boolean[]; knowledgeGroupId?: string }) => Promise<string>;
   updateKnowledgePoint: (id: string, partial: Partial<KnowledgePoint>) => Promise<void>;
   updateReviewDuration: (id: string, minutes: number) => Promise<void>;
   submitReview: (id: string, rating: number, allowSkip?: boolean) => Promise<ReviewResult>;
@@ -35,6 +35,7 @@ export const useKnowledgeStore = create<KnowledgeState>(() => ({
     const point: KnowledgePoint = {
       ...data,
       id,
+      knowledgeGroupId: data.knowledgeGroupId,
       currentStage: stage,
       nextReviewDate: stage >= 10 ? reviewDates[9] : reviewDates[stage],
       reviewDates,

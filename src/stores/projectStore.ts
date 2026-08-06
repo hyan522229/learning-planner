@@ -127,6 +127,12 @@ export const useProjectStore = create<ProjectState>(() => ({
     // Create review knowledge point on completion
     if (progress >= 100 && project.createReviewOnComplete && project.subjectId) {
       try {
+        // Find which collection (if any) this project belongs to
+        const collections = await db.projectCollections
+          .where({ personaId: project.personaId })
+          .toArray();
+        const parentCollection = collections.find(c => c.projectIds.includes(project.id));
+
         const pendingPlan = (window as any).__pendingReviewPlan;
         await useKnowledgeStore.getState().addKnowledgePoint({
           personaId: project.personaId,
@@ -136,6 +142,7 @@ export const useProjectStore = create<ProjectState>(() => ({
           reviewDurationMinutes: pendingPlan?.reviewDurationMinutes,
           initialStage: pendingPlan?.initialStage,
           enabledStages: pendingPlan?.enabledStages,
+          knowledgeGroupId: parentCollection?.id,
         });
         if (pendingPlan) {
           delete (window as any).__pendingReviewPlan;
