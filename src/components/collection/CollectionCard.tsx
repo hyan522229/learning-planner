@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/utils/cn';
 import type { ProjectCollection, Project } from '@/types';
 import type { CollectionProgress } from '@/engine/collection-progress';
+import { formatDurationCompact } from '@/utils/time';
 import { Card, CardContent, Progress, Badge, Button } from '@/components/ui';
 import {
   ChevronDown,
@@ -130,7 +131,9 @@ export function CollectionCard({
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {completedUnits} / {totalUnits} · 总进度 {completionPct}%
+              {projects.length > 0 && projects.every(p => p.measureType === 'minutes')
+                ? `${formatDurationCompact(completedUnits)} / ${formatDurationCompact(totalUnits)}`
+                : `${completedUnits} / ${totalUnits}`} · 总进度 {completionPct}%
             </p>
           </div>
 
@@ -231,7 +234,9 @@ export function CollectionCard({
                               </span>
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {project.completed} / {project.total} · {pct}%
+                              {project.measureType === 'minutes'
+                                ? `${formatDurationCompact(project.completed)} / ${formatDurationCompact(project.total)}`
+                                : `${project.completed} / ${project.total}`} · {pct}%
                             </p>
                             <Progress value={pct} className="h-1.5 mt-1" />
                           </div>

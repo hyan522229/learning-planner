@@ -873,7 +873,11 @@ export default function ProjectsPage() {
                     className="flex items-center justify-between p-3 rounded-lg border bg-card text-sm"
                   >
                     <div>
-                      <span className="font-medium">+{log.amount}</span>
+                      <span className="font-medium">
+                        +{projects.find(p => p.id === logProjectId)?.measureType === 'minutes'
+                          ? formatDurationCompact(log.amount)
+                          : log.amount}
+                      </span>
                       <span className="text-muted-foreground ml-2">
                         耗时 {formatDurationCompact(log.durationMinutes)}
                       </span>

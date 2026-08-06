@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { usePersonaStore } from '@/stores/personaStore';
 import { db } from '@/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { formatDurationCompact } from '@/utils/time';
 import { startOfDayEpoch } from '@/utils/date';
 
 const measureLabels: Record<string, string> = {
@@ -107,7 +108,9 @@ export default function ProgressPage() {
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium">{project.name}</span>
                   <span className="text-xs text-gray-400">
-                    {project.completed}/{project.total} {measureLabels[project.measureType] ?? ''}
+                    {project.measureType === 'minutes'
+                      ? `${formatDurationCompact(project.completed)} / ${formatDurationCompact(project.total)}`
+                      : `${project.completed}/${project.total} ${measureLabels[project.measureType] ?? ''}`}
                     <span className="ml-1">({pct}%)</span>
                   </span>
                 </div>
