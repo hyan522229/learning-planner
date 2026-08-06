@@ -7,7 +7,7 @@ import { formatDurationCompact } from '@/utils/time';
 import { startOfDayEpoch } from '@/utils/date';
 
 const measureLabels: Record<string, string> = {
-  pages: '页', questions: '题', minutes: '分钟', words: '词', articles: '篇',
+  pages: '页', questions: '题', minutes: '时长', words: '词', articles: '篇',
 };
 
 export default function ProgressPage() {

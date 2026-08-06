@@ -25,7 +25,7 @@ import type { CollectionProgress } from '@/engine/collection-progress';
 import { generateId } from '@/utils/id';
 
 const measureLabels: Record<MeasureType, string> = {
-  pages: '页', questions: '题', minutes: '分钟', words: '词', articles: '篇',
+  pages: '页', questions: '题', minutes: '时长', words: '词', articles: '篇',
 };
 
 const categoryLabels: Record<ProjectCategory, { label: string; icon: string; color: string; bgClass: string }> = {
@@ -50,8 +50,12 @@ export default function ProjectsPage() {
   const [measureType, setMeasureType] = useState<MeasureType>('pages');
   const [category, setCategory] = useState<ProjectCategory>('study');
   const [total, setTotal] = useState('100');
+  const [totalH, setTotalH] = useState('1');
+  const [totalM, setTotalM] = useState('0');
   const [priority, setPriority] = useState<Priority>(3);
   const [initialProgress, setInitialProgress] = useState('0');
+  const [initH, setInitH] = useState('0');
+  const [initM, setInitM] = useState('0');
   const [initialSpeed, setInitialSpeed] = useState('');
   const [createReview, setCreateReview] = useState(false);
   const [showReviewPlan, setShowReviewPlan] = useState(false);
@@ -233,16 +237,23 @@ export default function ProjectsPage() {
         name: name.trim(),
         measureType,
         category,
-        total: Number(total) || 100,
-        completed: Number(initialProgress) || 0,
+        // 时长度量：把「时+分」合成总分钟数；其他度量用原数字
+        total: measureType === 'minutes'
+          ? ((Number(totalH) || 0) * 60 + (Number(totalM) || 0)) || 100
+          : Number(total) || 100,
+        completed: measureType === 'minutes'
+          ? (Number(initH) || 0) * 60 + (Number(initM) || 0)
+          : Number(initialProgress) || 0,
         priority,
         initialSpeed: initialSpeed ? Number(initialSpeed) : undefined,
         createReviewOnComplete: createReview && !!subjectId,
         dailyBlockLimit: Number(dailyBlockLimit),
       });
 
-      setName(''); setMeasureType('pages'); setCategory('study'); setTotal('100'); setPriority(3);
-      setSubjectId(''); setInitialProgress('0'); setInitialSpeed(''); setCreateReview(false); setDailyBlockLimit('-1');
+      setName(''); setMeasureType('pages'); setCategory('study');
+      setTotal('100'); setTotalH('1'); setTotalM('0'); setPriority(3);
+      setSubjectId(''); setInitialProgress('0'); setInitH('0'); setInitM('0');
+      setInitialSpeed(''); setCreateReview(false); setDailyBlockLimit('-1');
       setShowForm(false);
     } finally {
       submittingRef.current = false;
@@ -423,7 +434,9 @@ export default function ProjectsPage() {
                             ? `${formatDurationCompact(project.completed)} / ${formatDurationCompact(project.total)}`
                             : `${project.completed} / ${project.total} ${measureLabels[project.measureType]}`}
                           {project.currentSpeedEWMA > 0 &&
-                            ` · 速度 ${project.currentSpeedEWMA} ${measureLabels[project.measureType]}/h`}
+                            ` · 速度 ${project.measureType === 'minutes'
+                              ? formatDurationCompact(project.currentSpeedEWMA)
+                              : `${project.currentSpeedEWMA} ${measureLabels[project.measureType]}`}/h`}
                         </p>
                       </div>
                       <div className="flex items-center gap-0.5 shrink-0 ml-2">
@@ -686,18 +699,54 @@ export default function ProjectsPage() {
                   {Object.entries(measureLabels).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
                 </select>
               </div>
-              <div className="space-y-2 w-28">
-                <Label>{measureType === 'minutes' ? '总时长(分钟)' : '总量'}</Label>
-                <Input type="number" value={total} onChange={e => setTotal(e.target.value)} min="1" />
-                {measureType === 'minutes' && total && (
-                  <p className="text-[10px] text-muted-foreground">≈ {formatDurationCompact(Number(total) || 0)}</p>
+              <div className="space-y-2 flex-1">
+                {measureType === 'minutes' ? (
+                  <>
+                    <Label>总时长</Label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <Input type="number" value={totalH} onChange={e => setTotalH(e.target.value)} min="0" placeholder="时" />
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0">时</span>
+                      <div className="flex-1">
+                        <Input type="number" value={totalM} onChange={e => setTotalM(e.target.value)} min="0" max="59" placeholder="分" />
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0">分</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      ≈ {formatDurationCompact((Number(totalH) || 0) * 60 + (Number(totalM) || 0))}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Label>总量</Label>
+                    <Input type="number" value={total} onChange={e => setTotal(e.target.value)} min="1" />
+                  </>
                 )}
               </div>
             </div>
             <div className="flex gap-3">
               <div className="space-y-2 flex-1">
-                <Label>{measureType === 'minutes' ? '初始已完成(分钟)' : '初始已完成量'}</Label>
-                <Input type="number" value={initialProgress} onChange={e => setInitialProgress(e.target.value)} min="0" />
+                {measureType === 'minutes' ? (
+                  <>
+                    <Label>初始已完成时长</Label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <Input type="number" value={initH} onChange={e => setInitH(e.target.value)} min="0" placeholder="时" />
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0">时</span>
+                      <div className="flex-1">
+                        <Input type="number" value={initM} onChange={e => setInitM(e.target.value)} min="0" max="59" placeholder="分" />
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0">分</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Label>初始已完成量</Label>
+                    <Input type="number" value={initialProgress} onChange={e => setInitialProgress(e.target.value)} min="0" />
+                  </>
+                )}
               </div>
               <div className="space-y-2 w-32">
                 <Label>预估速度(/h)</Label>
