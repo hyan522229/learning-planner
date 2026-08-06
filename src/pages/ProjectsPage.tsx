@@ -353,6 +353,7 @@ export default function ProjectsPage() {
                     onCreateProjectFull={() => { setAddToCollectionId(col.id); setShowForm(true); }}
                     onProjectProgress={(id) => { setUpdateProjectId(id); setUpdateAmount('0'); }}
                     onProjectReview={(p) => handleAddToReviewEngine(p)}
+                    onProjectLogs={(id) => handleShowLogs(id)}
                     onProjectDelete={(id) => deleteProject(id)}
                     onDelete={() => deleteCollection(col.id)}
                     onRestartCycle={col.mode === 'cycle' ? () => restartCycle(col.id) : undefined}

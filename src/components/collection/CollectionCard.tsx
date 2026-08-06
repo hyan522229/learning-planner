@@ -12,6 +12,7 @@ import {
   X,
   Brain,
   ChevronUp,
+  History,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -45,6 +46,7 @@ export interface CollectionCardProps {
   onCreateProjectFull?: () => void;
   onProjectProgress?: (id: string) => void;
   onProjectReview?: (p: Project) => void;
+  onProjectLogs?: (id: string) => void;
   onProjectDelete?: (id: string) => void;
   onDelete?: () => void;
   onRestartCycle?: () => void;
@@ -66,6 +68,7 @@ export function CollectionCard({
   onCreateProjectFull,
   onProjectProgress,
   onProjectReview,
+  onProjectLogs,
   onProjectDelete,
   onDelete,
   onRestartCycle,
@@ -277,6 +280,16 @@ export function CollectionCard({
                                 title="加入复习引擎"
                               >
                                 <Brain size={14} />
+                              </Button>
+                            )}
+                            {onProjectLogs && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => onProjectLogs(pid)}
+                                title="进度记录"
+                              >
+                                <History size={14} />
                               </Button>
                             )}
                             {onRemoveProject && (

@@ -352,7 +352,7 @@ export default function DailyPlanPage() {
           }));
 
         const limitLabel = (limit: number) => {
-          if (limit === -1) return '—';
+          if (limit === -1) return '∞';
           if (limit === 0) return '跳过';
           return String(limit);
         };
