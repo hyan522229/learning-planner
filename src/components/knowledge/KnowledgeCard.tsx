@@ -69,7 +69,7 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className={cn(
-          'flex items-center gap-3 px-4 py-3 rounded-xl border bg-card transition-all duration-150 hover:bg-muted/50',
+          'flex items-center gap-3 px-4 py-3 rounded-xl border bg-card transition-all duration-150 hover:bg-muted/60 hover:border-brand-300/40 hover:shadow-sm',
           isDue && 'ring-2 ring-amber-500/50 border-amber-500/30',
           isCompleted && 'opacity-60'
         )}
@@ -99,7 +99,7 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
           {/* ── Utility buttons ── */}
           <button
             onClick={(e) => { e.stopPropagation(); handleChangeDuration(-1); }}
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all"
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 active:bg-muted/80 transition-all"
             title="减少复习时长"
           >
             <Minus size={12} />
@@ -109,7 +109,7 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
           </span>
           <button
             onClick={(e) => { e.stopPropagation(); handleChangeDuration(1); }}
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all"
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 active:bg-muted/80 transition-all"
             title="增加复习时长"
           >
             <Plus size={12} />
