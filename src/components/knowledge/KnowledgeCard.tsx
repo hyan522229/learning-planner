@@ -4,7 +4,7 @@ import { cn } from '@/utils/cn';
 import type { KnowledgePoint } from '@/types';
 import { formatDate } from '@/utils/date';
 import { Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui';
-import { Trash2, Minus, Plus, Eye } from 'lucide-react';
+import { Trash2, Minus, Plus, Eye, RefreshCw } from 'lucide-react';
 import { useKnowledgeStore } from '@/stores/knowledgeStore';
 import { calculateReviewDates, projectedStageDate, DAY_MS } from '@/engine/ebbinghaus';
 import { REVIEW_INTERVALS } from '@/engine/constants';
@@ -31,7 +31,9 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
   const updateKnowledgePoint = useKnowledgeStore(s => s.updateKnowledgePoint);
   const restartFromStage = useKnowledgeStore(s => s.restartFromStage);
   const [showInspector, setShowInspector] = useState(false);
+  const [showRestart, setShowRestart] = useState(false);
   const [restartTarget, setRestartTarget] = useState<number | null>(null);
+  const [showLog, setShowLog] = useState(false);
 
   const handleChangeDuration = (delta: number) => {
     const next = Math.max(1, Math.min(120, (point.reviewDurationMinutes || 10) + delta));
@@ -65,7 +67,7 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className={cn(
-          'flex items-center gap-3 px-4 py-3 rounded-xl border bg-card transition-all duration-150 hover:bg-muted/30 active:scale-[0.98]',
+          'flex items-center gap-3 px-4 py-3 rounded-xl border bg-card transition-all duration-150 hover:bg-muted/30',
           isDue && 'ring-2 ring-amber-500/50 border-amber-500/30',
           isCompleted && 'opacity-60'
         )}
@@ -93,40 +95,113 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
 
         <div className="flex items-center gap-0.5 shrink-0">
           <button
-            onClick={() => handleChangeDuration(-1)}
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            onClick={(e) => { e.stopPropagation(); handleChangeDuration(-1); }}
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all"
             title="减少复习时长"
           >
             <Minus size={12} />
           </button>
-          <span className="text-xs text-muted-foreground w-7 text-center font-medium tabular-nums">
+          <span className="text-xs text-muted-foreground w-7 text-center font-medium tabular-nums select-none">
             {point.reviewDurationMinutes || 10}m
           </span>
           <button
-            onClick={() => handleChangeDuration(1)}
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            onClick={(e) => { e.stopPropagation(); handleChangeDuration(1); }}
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all"
             title="增加复习时长"
           >
             <Plus size={12} />
           </button>
+
+          <button
+            onClick={() => setShowInspector(true)}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all"
+            title="查看复习节点"
+          >
+            <Eye size={14} />
+          </button>
+
+          {/* Completion log button */}
+          <button
+            onClick={() => setShowLog(true)}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all"
+            title="完成记录"
+          >
+            <span className="text-[11px] font-mono">{sca.filter(t => t !== null).length}</span>
+          </button>
+
+          {/* Restart button */}
+          {point.currentStage > 0 && (
+            <button
+              onClick={() => { setShowRestart(v => !v); setRestartTarget(null); }}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-90 transition-all"
+              title="重新开始"
+            >
+              <RefreshCw size={14} />
+            </button>
+          )}
+
+          <button
+            onClick={() => onDelete(point.id)}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:scale-90 transition-all"
+            title="删除知识点"
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
-
-        <button
-          onClick={() => setShowInspector(true)}
-          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="查看复习节点"
-        >
-          <Eye size={14} />
-        </button>
-
-        <button
-          onClick={() => onDelete(point.id)}
-          className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-          title="删除知识点"
-        >
-          <Trash2 size={14} />
-        </button>
       </motion.div>
+
+      {/* Restart dropdown — on the card level, outside the inspector */}
+      {showRestart && point.currentStage > 0 && (
+        <div className="mt-2 p-3 rounded-lg border bg-muted/30 space-y-2">
+          <p className="text-xs font-medium">因拖延过久重新开始</p>
+          <p className="text-[11px] text-muted-foreground">从中断的节点重新开始，会清除该节点及之后的完成记录。</p>
+          {restartTarget !== null ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm">从 <strong>R{restartTarget + 1}</strong> 重新开始？</span>
+              <Button size="sm" variant="destructive" onClick={() => { restartFromStage(point.id, restartTarget); setRestartTarget(null); setShowRestart(false); }}>确认</Button>
+              <Button size="sm" variant="outline" onClick={() => { setRestartTarget(null); setShowRestart(false); }}>取消</Button>
+            </div>
+          ) : (
+            <select
+              value=""
+              onChange={(e) => { const v = Number(e.target.value); if (v >= 0) setRestartTarget(v); }}
+              className="text-sm border rounded px-2 py-1 bg-background"
+            >
+              <option value="">选择重新开始的节点...</option>
+              {Array.from({ length: point.currentStage }, (_, i) => (
+                <option key={i} value={i}>R{i + 1}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
+      {/* Completion log dialog — like project progress logs */}
+      <Dialog open={showLog} onOpenChange={setShowLog}>
+        <DialogContent className="sm:max-w-sm max-h-[70vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>完成记录 — {point.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            {Array.from({ length: 10 }, (_, i) => {
+              const t = sca[i];
+              if (!t) return null;
+              return (
+                <div key={i} className="flex items-center justify-between p-2 rounded-lg border bg-card text-sm">
+                  <span className="font-mono text-xs font-medium">R{i + 1}</span>
+                  <span className="text-muted-foreground text-xs">{formatDate(t, 'yyyy/MM/dd HH:mm')}</span>
+                </div>
+              );
+            })}
+            {!sca.some(t => t !== null) && (
+              <p className="text-sm text-muted-foreground text-center py-4">暂无完成记录</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLog(false)}>关闭</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* R-node inspector dialog */}
       <Dialog open={showInspector} onOpenChange={setShowInspector}>
@@ -208,34 +283,6 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
               {point.consecutiveCorrect > 0 && ` · 连续正确 ${point.consecutiveCorrect} 次`}
               {point.errorCount > 0 && ` · 当前出错 ${point.errorCount} 次`}
             </p>
-
-            {/* Restart from earlier stage (catching up after long break) */}
-            {point.currentStage > 0 && (
-              <div className="pt-2 border-t space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">因拖延过久重新开始</p>
-                <p className="text-[11px] text-muted-foreground">
-                  从中断的节点重新开始复习，会清除该节点及之后的完成记录。
-                </p>
-                {restartTarget !== null ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">从 <strong>R{restartTarget + 1}</strong> 重新开始？</span>
-                    <Button size="sm" variant="destructive" onClick={() => { restartFromStage(point.id, restartTarget); setRestartTarget(null); }}>确认</Button>
-                    <Button size="sm" variant="outline" onClick={() => setRestartTarget(null)}>取消</Button>
-                  </div>
-                ) : (
-                  <select
-                    value=""
-                    onChange={(e) => { const v = Number(e.target.value); if (v >= 0) setRestartTarget(v); }}
-                    className="text-sm border rounded px-2 py-1 bg-background"
-                  >
-                    <option value="">选择重新开始的节点...</option>
-                    {Array.from({ length: point.currentStage }, (_, i) => (
-                      <option key={i} value={i}>R{i + 1}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            )}
 
             {/* Manual stage correction (emergency only) */}
             <div className="pt-2 border-t space-y-2">
