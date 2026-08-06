@@ -274,18 +274,20 @@ async function buildDayBlocks(
     .filter(p => p.status === 'active' || p.status === 'completed')
     .toArray();
 
-  // Apply collection rules: only include projects that collections deem active
+  // Apply collection rules: only include projects that collections deem active.
+  // NOTE: the filter MUST run even when collectionActiveIds is empty — that's
+  // exactly the case where ALL collections are skipped (dailyBlockLimit === 0).
+  // Without the filter, skipped-collection projects would fall back to their
+  // own dailyBlockLimit (-1 = unlimited) and generate blocks anyway.
   const allCollections = await db.projectCollections.where({ personaId }).toArray();
   const collectionActiveIds = await useCollectionStore.getState().getActiveProjectIds(personaId, date);
-  if (collectionActiveIds.size > 0) {
-    const allManagedIds = new Set(allCollections.flatMap(c => c.projectIds));
-    if (allManagedIds.size > 0) {
-      // Projects managed by collections: only include if active
-      // Projects NOT in any collection: always include
-      allProjects = allProjects.filter(p =>
-        !allManagedIds.has(p.id) || collectionActiveIds.has(p.id)
-      );
-    }
+  const allManagedIds = new Set(allCollections.flatMap(c => c.projectIds));
+  if (allManagedIds.size > 0) {
+    // Projects managed by collections: only include if active
+    // Projects NOT in any collection: always include
+    allProjects = allProjects.filter(p =>
+      !allManagedIds.has(p.id) || collectionActiveIds.has(p.id)
+    );
   }
 
   // Build collection block limit map for all collection modes (cycle/single/dual)
