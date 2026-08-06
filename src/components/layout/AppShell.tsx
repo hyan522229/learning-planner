@@ -26,6 +26,7 @@ export function AppShell() {
   const sidebarCollapsed = useUIStore(s => s.sidebarCollapsed);
   const toggleSidebar = useUIStore(s => s.toggleSidebar);
   const repairAllKnowledgePoints = useKnowledgeStore(s => s.repairAllKnowledgePoints);
+  const syncCompletionRecords = useKnowledgeStore(s => s.syncCompletionRecords);
   const location = useLocation();
 
   useEffect(() => {
@@ -40,6 +41,9 @@ export function AppShell() {
       loadEnvironments(activePersonaId);
       repairAllKnowledgePoints(activePersonaId).then(count => {
         if (count > 0) console.log(`[Ebbinghaus] Repaired ${count} knowledge point(s)`);
+      });
+      syncCompletionRecords(activePersonaId).then(count => {
+        if (count > 0) console.log(`[Sync] Filled completion records for ${count} knowledge point(s)`);
       });
     }
   }, [activePersonaId, loadSettings, loadEnvironments, repairAllKnowledgePoints]);

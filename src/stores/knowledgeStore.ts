@@ -23,6 +23,7 @@ interface KnowledgeState {
   shiftAllDates: (personaId: string, days: number) => Promise<void>;
   repairAllKnowledgePoints: (personaId: string) => Promise<number>;
   restartFromStage: (id: string, fromStage: number) => Promise<void>;
+  syncCompletionRecords: (personaId: string) => Promise<number>;
 }
 
 export const useKnowledgeStore = create<KnowledgeState>(() => ({
@@ -196,5 +197,50 @@ export const useKnowledgeStore = create<KnowledgeState>(() => ({
       status: 'active',
       updatedAt: now,
     });
+  },
+
+  /** Sync stageCompletedAt from completed review blocks into knowledge points. */
+  syncCompletionRecords: async (personaId) => {
+    const blocks = await db.blocks
+      .where({ personaId, status: 'completed' })
+      .filter(b => b.type === 'review' && (b.knowledgePointIds?.length ?? 0) > 0)
+      .toArray();
+
+    // Group by KP ID: for each KP, collect { stageIndex, completedAt }
+    const byKp = new Map<string, { stageIndex: number; completedAt: number }[]>();
+    for (const b of blocks) {
+      const kpIds = b.knowledgePointIds || [];
+      // Parse R number from block name like "R3 知识点名"
+      const rMatch = b.name.match(/^R(\d+)\s/);
+      if (!rMatch) continue;
+      const stageIndex = Number(rMatch[1]) - 1; // R3 → index 2
+      if (stageIndex < 0 || stageIndex >= 10 || !b.completedAt) continue;
+      for (const kpId of kpIds) {
+        if (!byKp.has(kpId)) byKp.set(kpId, []);
+        byKp.get(kpId)!.push({ stageIndex, completedAt: b.completedAt });
+      }
+    }
+
+    let synced = 0;
+    for (const [kpId, records] of byKp) {
+      const kp = await db.knowledgePoints.get(kpId);
+      if (!kp) continue;
+      const sca = kp.stageCompletedAt && kp.stageCompletedAt.length === 10
+        ? [...kp.stageCompletedAt]
+        : Array.from({ length: 10 }, () => null as number | null);
+
+      let changed = false;
+      for (const rec of records) {
+        if (sca[rec.stageIndex] === null) {
+          sca[rec.stageIndex] = rec.completedAt;
+          changed = true;
+        }
+      }
+      if (changed) {
+        await db.knowledgePoints.update(kpId, { stageCompletedAt: sca, updatedAt: Date.now() });
+        synced++;
+      }
+    }
+    return synced;
   },
 }));

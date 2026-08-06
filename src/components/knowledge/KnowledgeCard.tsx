@@ -4,7 +4,7 @@ import { cn } from '@/utils/cn';
 import type { KnowledgePoint } from '@/types';
 import { formatDate } from '@/utils/date';
 import { Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui';
-import { Trash2, Minus, Plus, Eye, RefreshCw } from 'lucide-react';
+import { Trash2, Minus, Plus, Eye, RefreshCw, History, X } from 'lucide-react';
 import { useKnowledgeStore } from '@/stores/knowledgeStore';
 import { calculateReviewDates, projectedStageDate, DAY_MS } from '@/engine/ebbinghaus';
 import { REVIEW_INTERVALS } from '@/engine/constants';
@@ -34,6 +34,7 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
   const [showRestart, setShowRestart] = useState(false);
   const [restartTarget, setRestartTarget] = useState<number | null>(null);
   const [showLog, setShowLog] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleChangeDuration = (delta: number) => {
     const next = Math.max(1, Math.min(120, (point.reviewDurationMinutes || 10) + delta));
@@ -94,6 +95,7 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
         </div>
 
         <div className="flex items-center gap-0.5 shrink-0">
+          {/* ── Utility buttons ── */}
           <button
             onClick={(e) => { e.stopPropagation(); handleChangeDuration(-1); }}
             className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all"
@@ -120,33 +122,55 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete }: Pr
             <Eye size={14} />
           </button>
 
-          {/* Completion log button */}
           <button
             onClick={() => setShowLog(true)}
             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all"
             title="完成记录"
           >
-            <span className="text-[11px] font-mono">{sca.filter(t => t !== null).length}</span>
+            <History size={14} />
           </button>
 
-          {/* Restart button */}
+          {/* ── Divider ── */}
+          <span className="w-px h-5 bg-border mx-1" />
+
+          {/* ── Destructive buttons (with protection) ── */}
           {point.currentStage > 0 && (
-            <button
-              onClick={() => { setShowRestart(v => !v); setRestartTarget(null); }}
-              className="p-1.5 rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-90 transition-all"
-              title="重新开始"
-            >
-              <RefreshCw size={14} />
-            </button>
+            confirmDelete ? null : (
+              <button
+                onClick={() => { setShowRestart(v => !v); setRestartTarget(null); }}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-90 transition-all"
+                title="重新开始"
+              >
+                <RefreshCw size={14} />
+              </button>
+            )
           )}
 
-          <button
-            onClick={() => onDelete(point.id)}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:scale-90 transition-all"
-            title="删除知识点"
-          >
-            <Trash2 size={14} />
-          </button>
+          {confirmDelete ? (
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-destructive">确认删除?</span>
+              <button
+                onClick={() => { onDelete(point.id); setConfirmDelete(false); }}
+                className="p-1 rounded text-destructive hover:bg-destructive/10 active:scale-90 transition-all"
+              >
+                <Trash2 size={14} />
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="p-1 rounded text-muted-foreground hover:bg-muted active:scale-90 transition-all"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:scale-90 transition-all"
+              title="删除知识点"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
       </motion.div>
 
