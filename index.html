@@ -15,6 +15,22 @@
     <link rel="manifest" href="%BASE_URL%manifest.json" />
     <title>学习规划</title>
     <script>
+      // 自愈：清除历史 Service Worker 与缓存（不动 IndexedDB 学习数据）。
+      // 解决旧 index.html / 旧 SW 缓存导致 JS 404 白屏的问题。
+      (function () {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            regs.forEach(function (reg) { reg.unregister(); });
+          }).catch(function () {});
+        }
+        if (window.caches && caches.keys) {
+          caches.keys().then(function (keys) {
+            keys.forEach(function (key) { caches.delete(key); });
+          }).catch(function () {});
+        }
+      })();
+    </script>
+    <script>
       // 兼容旧移动浏览器：Array/String.prototype.at polyfill（ES5 语法，模块加载前执行）
       (function () {
         if (typeof Array.prototype.at !== 'function') {

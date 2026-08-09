@@ -79,12 +79,9 @@ window.addEventListener('beforeunload', () => {
 });
 
 // ── Service worker ──
-// 只做干净注册，不做任何强制刷新/循环检查。
-// 更新与缓存由 cache-first SW 自管理：导航 network-first 拿最新版本，
-// 静态资源 cache-first 秒开。移除 reload 逻辑避免移动端循环卡死。
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw.js').catch(() => {});
-}
+// 已彻底弃用：不再注册 SW。历史 SW 与缓存由 index.html 内联清洗脚本清除，
+// 避免旧 SW/旧缓存导致移动端 JS 404 白屏。数据在 IndexedDB，不受影响。
+// 二次访问由 GitHub Pages 的 HTTP 缓存（max-age）提供加速。
 
 // ── 全局错误捕获：白屏时把错误显示出来，而不是空白页 ──
 function escapeHtml(s: string): string {
