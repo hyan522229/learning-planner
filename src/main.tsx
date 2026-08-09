@@ -79,37 +79,11 @@ window.addEventListener('beforeunload', () => {
 });
 
 // ── Service worker ──
+// 只做干净注册，不做任何强制刷新/循环检查。
+// 更新与缓存由 cache-first SW 自管理：导航 network-first 拿最新版本，
+// 静态资源 cache-first 秒开。移除 reload 逻辑避免移动端循环卡死。
 if ('serviceWorker' in navigator) {
-  const reloadOnUpdate = (reg: ServiceWorkerRegistration) => {
-    if (reg.waiting) {
-      reg.waiting.postMessage('skipWaiting');
-      window.location.reload();
-      return;
-    }
-    reg.addEventListener('updatefound', () => {
-      const w = reg.installing;
-      if (!w) return;
-      w.addEventListener('statechange', () => {
-        if (w.state === 'installed' && navigator.serviceWorker.controller) {
-          w.postMessage('skipWaiting');
-          window.location.reload();
-        }
-      });
-    });
-  };
-
-  navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw.js').then(reg => {
-    reloadOnUpdate(reg);
-    // Check for updates on page load (handles manual refresh)
-    reg.update();
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') reg.update();
-    });
-  });
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    window.location.reload();
-  });
+  navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw.js').catch(() => {});
 }
 
 createRoot(document.getElementById('root')!).render(
