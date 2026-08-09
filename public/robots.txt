@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://hyan522229.github.io/learning-planner/sitemap.xml
