@@ -17,12 +17,13 @@ const typeConfig: Record<string, { label: string; color: string; bg: string }> =
 interface Props {
   block: Block;
   subjectName?: string;
+  subjectColor?: string;
   onStart: (block: Block) => void;
   onComplete: (block: Block) => void;
   onSkip: (block: Block) => void;
 }
 
-export function BlockCard({ block, subjectName, onStart, onComplete, onSkip }: Props) {
+export function BlockCard({ block, subjectName, subjectColor, onStart, onComplete, onSkip }: Props) {
   const config = typeConfig[block.type] ?? typeConfig.new_learning;
   const isDone = block.status === 'completed';
   const isSkipped = block.status === 'skipped';
@@ -84,7 +85,15 @@ export function BlockCard({ block, subjectName, onStart, onComplete, onSkip }: P
             {config.label}
           </Badge>
           {subjectName && (
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+            <Badge
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 shrink-0"
+              style={subjectColor ? {
+                color: subjectColor,
+                borderColor: subjectColor + '55',
+                backgroundColor: subjectColor + '1a',
+              } : undefined}
+            >
               {subjectName}
             </Badge>
           )}

@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
 
 interface Props {
   blocks: Block[];
-  subjectMap?: Map<string, { name: string }>;
+  subjectMap?: Map<string, { name: string; color?: string }>;
   onStart: (block: Block) => void;
   onComplete: (block: Block) => void;
   onSkip: (block: Block) => void;
@@ -52,6 +52,7 @@ export function Timeline({ blocks, subjectMap, onStart, onComplete, onSkip }: Pr
               <BlockCard
                 block={block}
                 subjectName={block.subjectId ? subjectMap?.get(block.subjectId)?.name : undefined}
+                subjectColor={block.subjectId ? subjectMap?.get(block.subjectId)?.color : undefined}
                 onStart={onStart}
                 onComplete={onComplete}
                 onSkip={onSkip}
