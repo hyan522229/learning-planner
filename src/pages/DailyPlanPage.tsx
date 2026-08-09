@@ -57,6 +57,7 @@ export default function DailyPlanPage() {
   const updateCollection = useCollectionStore(s => s.updateCollection);
   const subjects = useSubjectStore(s => s.subjects);
   const loadSubjects = useSubjectStore(s => s.loadSubjects);
+  const subjectMap = useMemo(() => new Map(subjects.map(s => [s.id, s])), [subjects]);
   const collections = useLiveQuery(
     async () => {
       if (!activePersonaId) return [];
@@ -459,6 +460,7 @@ export default function DailyPlanPage() {
 
       <Timeline
         blocks={displayBlocks}
+        subjectMap={subjectMap}
         onStart={handleStart}
         onComplete={handleComplete}
         onSkip={handleSkip}

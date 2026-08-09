@@ -4,7 +4,7 @@ import { cn } from '@/utils/cn';
 import type { KnowledgePoint } from '@/types';
 import { formatDate } from '@/utils/date';
 import { Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui';
-import { Trash2, Minus, Plus, Eye, RefreshCw, History, X } from 'lucide-react';
+import { Trash2, Minus, Plus, Eye, RefreshCw, History, X, FolderInput } from 'lucide-react';
 import { useKnowledgeStore } from '@/stores/knowledgeStore';
 import { calculateReviewDates, projectedStageDate, DAY_MS } from '@/engine/ebbinghaus';
 import { REVIEW_INTERVALS } from '@/engine/constants';
@@ -93,15 +93,6 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete, onMo
             <span>{stageLabels[point.currentStage] ?? `R${point.currentStage}`}</span>
             <span>·</span>
             <span>下次 {formatDate(point.nextReviewDate, 'MM/dd')}</span>
-            {onMoveToGroup && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onMoveToGroup(); }}
-                className="text-[10px] text-brand-500 hover:text-brand-700 hover:underline ml-1"
-                title="移动到合集"
-              >
-                归类
-              </button>
-            )}
           </div>
         </div>
 
@@ -141,19 +132,38 @@ export function KnowledgeCard({ point, subjectName, subjectColor, onDelete, onMo
             <History size={14} />
           </button>
 
+          {/* 归类：图标按钮，无回调时仍占位保持对齐 */}
+          <button
+            onClick={() => onMoveToGroup?.()}
+            className={cn(
+              'p-1.5 rounded-md text-muted-foreground active:scale-90 transition-all',
+              onMoveToGroup
+                ? 'hover:text-foreground hover:bg-muted'
+                : 'invisible pointer-events-none'
+            )}
+            title="移动到合集"
+          >
+            <FolderInput size={14} />
+          </button>
+
           {/* ── Divider ── */}
           <span className="w-px h-5 bg-border mx-2" />
 
           {/* ── Destructive buttons (with protection) ── */}
-          {point.currentStage > 0 && (
-            <button
-              onClick={() => { setShowRestart(v => !v); setRestartTarget(null); }}
-              className="p-1.5 rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-90 transition-all"
-              title="重新开始"
-            >
-              <RefreshCw size={14} />
-            </button>
-          )}
+          {/* 重新开始：始终渲染保证按钮对齐，未开始复习(stage=0)时置灰禁用 */}
+          <button
+            onClick={() => { setShowRestart(v => !v); setRestartTarget(null); }}
+            disabled={point.currentStage === 0}
+            className={cn(
+              'p-1.5 rounded-md text-muted-foreground active:scale-90 transition-all',
+              point.currentStage === 0
+                ? 'opacity-30 cursor-not-allowed'
+                : 'hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30'
+            )}
+            title={point.currentStage > 0 ? '重新开始' : '尚未开始复习'}
+          >
+            <RefreshCw size={14} />
+          </button>
 
           <button
             onClick={() => setConfirmDelete(true)}
