@@ -72,6 +72,8 @@ export default function SettingsPage() {
       dailyStatuses: await db.dailyStatuses.toArray(),
       settings: await db.settings.toArray(),
       progressLogs: await db.progressLogs.toArray(),
+      audioFiles: await db.audioFiles.toArray(),
+      projectCollections: await db.projectCollections.toArray(),
       exportedAt: new Date().toISOString(),
     };
 
@@ -87,26 +89,33 @@ export default function SettingsPage() {
   const handleImport = () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json';
-    input.onchange = async (e) => {
+    input.accept = '.json,.jsonl';
+    input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
-      try {
-        const text = await file.text();
-        const data = JSON.parse(text);
-        if (!data.exportedAt || !data.personas) throw new Error('Invalid backup file');
-        await db.transaction('rw', db.tables, async () => {
-          for (const table of db.tables) await table.clear();
-          for (const table of db.tables) {
-            const key = table.name;
-            if (data[key] && data[key].length > 0) await table.bulkAdd(data[key]);
-          }
-        });
-        alert('数据导入成功！请刷新页面。');
-        window.location.reload();
-      } catch {
-        alert('导入失败：文件格式不正确');
-      }
+      // 用 FileReader 读取，兼容旧移动浏览器（File.text() 不受支持会导致导入失败）
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const data = JSON.parse(String(reader.result));
+          if (!data.exportedAt || !data.personas) throw new Error('文件格式不正确');
+          await db.transaction('rw', db.tables, async () => {
+            for (const table of db.tables) await table.clear();
+            for (const table of db.tables) {
+              const key = table.name;
+              if (Array.isArray(data[key]) && data[key].length > 0) {
+                await table.bulkAdd(data[key]);
+              }
+            }
+          });
+          alert('数据导入成功！请刷新页面。');
+          window.location.reload();
+        } catch (err) {
+          alert('导入失败：' + ((err as Error)?.message || '文件格式不正确'));
+        }
+      };
+      reader.onerror = () => alert('导入失败：无法读取文件');
+      reader.readAsText(file);
     };
     input.click();
   };
