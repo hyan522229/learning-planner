@@ -6,9 +6,12 @@
   "scope": "/learning-planner/",
   "id": "/learning-planner/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
   "theme_color": "#0066cc",
+  "categories": ["education", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "icon-192.png",
@@ -19,6 +22,32 @@
       "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "今日规划",
+      "short_name": "规划",
+      "url": "/learning-planner/#/plan",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "计时器",
+      "short_name": "计时",
+      "url": "/learning-planner/#/timer",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "项目",
+      "short_name": "项目",
+      "url": "/learning-planner/#/projects",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "数据分析",
+      "short_name": "分析",
+      "url": "/learning-planner/#/analytics",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

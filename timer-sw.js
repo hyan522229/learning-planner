@@ -111,3 +111,10 @@ self.addEventListener('notificationclick', function (event) {
     })
   );
 });
+
+// PWA 可安装性（beforeinstallprompt）要求 SW 注册了 fetch 处理器。
+// 这里保持严格网络透明：只注册监听器、绝不 respondWith / 绝不缓存，
+// 行为与没有该监听器完全一致，因此不会复发旧版"缓存旧 JS 导致白屏"的问题。
+self.addEventListener('fetch', function () {
+  /* 网络透明：不拦截、不缓存任何请求 */
+});
