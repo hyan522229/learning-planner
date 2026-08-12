@@ -3,6 +3,8 @@
   "short_name": "学习规划",
   "description": "艾宾浩斯复习计划器",
   "start_url": "/learning-planner/?standalone=true",
+  "scope": "/learning-planner/",
+  "id": "/learning-planner/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
