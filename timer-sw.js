@@ -1,4 +1,4 @@
-/* 学习规划器 - 计时完成通知 Service Worker
+/* 学习规划器 - 后台通知 Service Worker（计时完成 + 待办提醒）
  *
  * 设计原则：
  * 1. 网络透明：绝不拦截任何请求、绝不缓存任何资源。
@@ -58,8 +58,8 @@ function handleSchedule(data) {
   if (!data || !data.tag || !data.notifyAt) return;
   pending[data.tag] = {
     notifyAt: data.notifyAt,
-    title: data.title || '学习计时完成',
-    body: data.body || '本次学习计时已结束，休息一下或继续下一项吧！',
+    title: data.title || '学习规划器',
+    body: data.body || '有一项到了你设定的提醒时间。',
   };
   fireAndRearm();
 }
@@ -97,17 +97,35 @@ self.addEventListener('message', function (event) {
   }
 });
 
-// 点击通知：聚焦已打开的窗口，否则打开计时页补全完成流程
+// 待办提醒：窗口已经开着时只聚焦不够 —— 用户看到的还是原来那一页
+// （后台的 PWA 恰恰是最常见的情形），点提醒等于没反应。聚焦后再把它导航到待办页。
+// navigate 不是所有客户端都有；没有或失败都不影响"窗口已聚焦"这个结果，
+// 绝不能因为导航失败把用户留在没有窗口的状态。
+function focusTodoClientAndNavigate(client, target) {
+  return client.focus().then(function () {
+    if (typeof client.navigate === 'function') {
+      return Promise.resolve(client.navigate(target)).catch(function () {});
+    }
+  }).catch(function () {});
+}
+
+// 点击通知：先按 tag 决定落点，再找已打开的窗口。
+// tag 前缀 `todo:` 必须与页面侧的 REMINDER_TAG_PREFIX（src/utils/reminder.ts）一致，
+// 不一致的话待办提醒会被当成计时通知、落到计时页。
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
+  var tag = event.notification.tag || '';
+  var isTodo = tag.indexOf('todo:') === 0;
+  var target = scopePath('') + (isTodo ? '#/todos' : '#/timer');
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
       for (var i = 0; i < clientList.length; i++) {
         if (clientList[i].focus) {
+          if (isTodo) return focusTodoClientAndNavigate(clientList[i], target);
           return clientList[i].focus().catch(function () {});
         }
       }
-      return self.clients.openWindow(scopePath('') + '#/timer').catch(function () {});
+      return self.clients.openWindow(target).catch(function () {});
     })
   );
 });
